@@ -57,7 +57,7 @@ bash scripts/preview-plymouth.sh --headless --diagnostics white 10
 bash scripts/preview-plymouth.sh --headless --diagnostics black 10
 ```
 
-The diagnostic check saves an additional `build/plymouth-<variant>-prompt.png`, then reloads the theme to clear the synthetic prompt. This checks prompt rendering, not encrypted-root unlocking or a real boot.
+The diagnostic check saves an additional `build/plymouth-<variant>-prompt.png`, keeps the synthetic dialog visible through the final fade, and clears it when the preview exits. This checks prompt rendering, not encrypted-root unlocking or a real boot.
 
 ## Install only after reviewing
 

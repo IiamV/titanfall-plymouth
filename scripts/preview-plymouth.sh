@@ -92,8 +92,8 @@ if $diagnostics; then
     if $headless && command -v magick >/dev/null; then
         magick import -window root "$ROOT/build/plymouth-$variant-prompt.png"
     fi
+    # Keep the diagnostic dialog active to verify it survives the final fade.
     kill "$prompt_pid" 2>/dev/null || true
-    plymouth reload
     plymouth hide-message --text='PILOT LINK // diagnostic message'
     sleep "$((seconds - 4))"
 else
