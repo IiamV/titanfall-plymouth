@@ -91,7 +91,9 @@ capture() {
 capture background
 sleep 0.65
 capture phase-left
-sleep 0.45
+sleep 0.25
+capture phase-top-motion
+sleep 0.2
 capture phase-right
 sleep 0.4
 capture phase-top

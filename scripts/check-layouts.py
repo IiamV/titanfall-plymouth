@@ -10,7 +10,8 @@ for width, height in [(1024, 768), (1280, 540)]:
     def image(suffix):
         return subprocess.check_output(["ffmpeg", "-v", "error", "-i", str(prefix) + suffix,
                                         "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1"])
-    baseline = image("-background.png")
+    initial = image("-background.png")
+    baseline = image("-screenshot.png")
     data = image("-closed.png")
     assert len(data) == len(baseline) == width * height * 3
     def ink(x, y):
@@ -37,5 +38,6 @@ for width, height in [(1024, 768), (1280, 540)]:
         start = (y * width + int(390*width/960)) * 3
         end = (y * width + int(570*width/960)) * 3
         assert data[start:end] == baseline[start:end], "A logo remains in the main panel"
-    assert image("-screenshot.png") == baseline, "The background changed after the fade"
-    print(f"{width}x{height}: uncropped panel borders, no logo, preserved background")
+    assert min(initial) == max(initial) == 0, "The intact screenshot is visible before assembly"
+    assert baseline != initial, "The assembled SDDM image is missing"
+    print(f"{width}x{height}: uncropped panel borders, no logo, blank start, assembled SDDM image")
