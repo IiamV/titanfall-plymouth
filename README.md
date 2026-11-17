@@ -1,11 +1,15 @@
 # Titanfall Pilot Link for Plymouth
 
-A clean, four-panel cockpit animation based on the complete local `closing-pilot.mp4` reference. Both side plates move, followed by the top and bottom plates. The Marauder emblem stays centered on the top plate and travels with it. All lines and the emblem fade away together at the end.
+A stationary cockpit-panel light-up sequence using image-generated artwork based on stills from the complete local `closing-pilot.mp4` reference. Four adjoining panel faces cover the full screen: left, right, a large central/top panel, and the bottom strip. The emblem stays in the center of the large central/top panel. Panel positions never move; outlines illuminate in sequence, then all outlines and the emblem fade together.
 
-- `titanfall-white`: white background, black outlines.
-- `titanfall-black`: black background, white outlines.
+- `titanfall-white`: white panel faces, black outlines.
+- `titanfall-black`: black panel faces, white outlines.
 
-The artwork is a clean 2D interpretation of the cockpit silhouettes, not an edge-detected texture or gameplay-video playback. Keyframe timings are recorded in `theme/motion.json`. The build uses the full local video's duration (about 5.44 seconds), adds a 0.15-second hold, then fades every panel and the emblem together over 0.8 seconds. No part of the original media is trimmed or overwritten.
+The selected artwork is the **first generated image**, with its original bottom-panel proportions. The later thin-bottom edit was discarded at the user's request. The large central area is a panel face, not an open viewport.
+
+The built-in image generator produced [the artwork](theme/panels/generated-panels.png); [the selected prompt and reference details](theme/panels/generation-prompt.txt) are saved alongside it. The build converts its monochrome outlines into per-panel alpha layers, removing faint paper grain during palette conversion. It does not edge-detect gameplay textures or add panel translation.
+
+Illumination timings are recorded in `theme/lighting.json`. The build retains the full local reference duration (about 5.44 seconds), adds a 0.15-second hold, then fades all outlines and the emblem over 0.8 seconds. Original media is never trimmed or overwritten.
 
 ## Build and review before installing
 
@@ -17,7 +21,7 @@ ffplay -autoexit build/preview-white.mp4
 ffplay -autoexit build/preview-black.mp4
 ```
 
-The source artwork is in `theme/panels/`. The native Plymouth theme and desktop previews use the same keyframes. The emblem is positioned relative to the top sprite, rather than independently in the center of the display.
+The native Plymouth theme and desktop previews use the same fixed layout and illumination keyframes. The emblem lights up with the large central/top panel and remains at its center.
 
 Optional desktop previews with the supplied sound clips:
 
@@ -49,7 +53,7 @@ bash scripts/preview-plymouth.sh --headless black 8
 python3 scripts/check-previews.py
 ```
 
-The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom motion, a `closed.png` image once all panels settle, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm all four panels move, the emblem remains centered on the moving top plate, and the final frame is completely plain. Logs are overwritten by each run.
+The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom illumination, a `closed.png` image once all panels are lit, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm full panel coverage, unchanged outline coordinates during illumination, a fixed centered emblem on the main/top panel, and a completely plain final frame. Logs are overwritten by each run.
 
 Optional authentication rendering check:
 
@@ -82,7 +86,7 @@ sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
 
 ## Sources and checkpoints
 
-The five supplied media files remain unchanged. `closing-pilot.mp4` is the sole motion reference used by the build; the incomplete downloaded excerpt from the earlier implementation has been removed. `build/manifest.json` records the original video's duration, frame count, SHA-256, keyframes, and fade timing. Generated assets and previews are ignored by Git.
+The five supplied media files remain unchanged. `closing-pilot.mp4` is the complete lighting-sequence reference used by the build; the incomplete downloaded excerpt from the earlier implementation has been removed. `build/manifest.json` records the original video's duration, frame count, SHA-256, keyframes, and fade timing. Generated assets and previews are ignored by Git.
 
 Implementation follows the [official Plymouth scripting reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and the installed script-theme examples. The Plymouth skill search found no dedicated skill. A TwelveLabs video-understanding skill was read in full and reviewed but not installed or invoked; reference inspection used local FFmpeg frame sheets instead.
 
