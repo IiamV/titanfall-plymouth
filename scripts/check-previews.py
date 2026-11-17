@@ -58,7 +58,7 @@ parser.add_argument("--check-texture-motion",action="store_true",help="fit fadin
 args=parser.parse_args()
 manifest=json.loads((ROOT/"build/manifest.json").read_text())
 assert manifest["mode"] == "inward-pictures-outward"
-assert manifest["lines"]["animation"] == "segment-endpoints"
+assert manifest["lines"]["animation"] == "horizontal-endpoints"
 if manifest["background"]:
     assert manifest["background"]["fit"] == "cover", "Picture leaves padding outside the panels"
 panels=manifest["panels"]
@@ -107,6 +107,18 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
                         assert max(abs(face[local+c]-photo[source+c]) for c in range(3))<=1, f"{part}: settled picture does not match screenshot"
         if args.check_texture_motion:
             probe_picture(part,pixels(str(prefix)+f"-phase-{part}.png"),theme,panel,ink,bg)
+    # Every nonhorizontal stroke keeps the screen-centered wipe. Probe
+    # full stroke pixels away from joints and the two horizontal seams.
+    for frame in (5,13):
+        alpha=pixels(theme/f"lines-{frame}.png","rgba")[3::4]
+        threshold=1-frame/(manifest["lines"]["frames"]-1)
+        for y in range(15,H-15):
+            if abs(y-140)<8 or abs(y-469)<8: continue
+            for x in range(10,W-10):
+                if ink[y*W+x]<250: continue
+                radius=max(abs(x-W/2)/(W/2),abs(y-H/2)/(H/2))
+                if abs(radius-threshold)<0.02: continue
+                assert (alpha[y*W+x]>200)==(radius>threshold), "Nonhorizontal seam animation changed"
     entrance=[]
     for label in ("entrance-early","entrance-late","lines-ready"):
         frame=pixels(str(prefix)+f"-{label}.png")
