@@ -14,7 +14,7 @@ Changing a wallpaper, palette, or speed requires rebuilding, copying the generat
 
 ## Interactive CLI
 
-Run `./install.sh`. Arrow keys (or j/k and Enter) choose options in a terminal; numbered menus work with redirected input. The picture menu has three choices: **SDDM**, **Picture**, and **Custom**. SDDM shows the detected screenshot path; Picture shows the bundled wallpaper path. The build uses the exact displayed path. Custom prompts for another file; blank input selects solid panels. Missing SDDM images are marked as not found and reported when selected. Custom colors and speed use the same validation as the build CLI.
+Run `./install.sh`. Arrow keys (or j/k and Enter) choose options in a terminal; numbered menus work with redirected input. The picture menu has three choices: **SDDM**, **Picture**, and **Custom**. SDDM shows the detected screenshot path; Picture shows a discovered user wallpaper or a clearly marked default-folder fallback. The build uses the exact displayed path. Custom prompts for another file; blank input selects solid panels. Missing SDDM images are marked as not found and reported when selected. Custom colors and speed use the same validation as the build CLI.
 
 `./install.sh --preview-only` builds and offers the video preview without offering system installation. The settings and repeatable build command are saved in `build/setup-options.json`; build output goes to `build/setup-build.log`.
 
@@ -22,11 +22,28 @@ Installation reads the current theme and backs up any existing target theme unde
 
 Automatic installation needs `plymouth-set-default-theme -R`; use build/preview mode and your distribution's installation procedure if that tool is unavailable. The wizard does not install dependencies, change boot arguments, or reboot.
 
+## Wallpaper discovery
+
+```bash
+python3 scripts/wallpaper.py
+python3 scripts/wallpaper.py --json
+python3 scripts/build.py --wallpaper --panel-color '#0b1220' --line-color '#6ee7ff'
+```
+
+Discovery tries running swww/awww and Hyprpaper queries first, then the active GNOME/Cinnamon/MATE or Xfce session. It then checks saved Hyprpaper, Sway/swaybg, Waypaper, KDE Plasma, Xfce, feh, Nitrogen, and pywal configuration. Active-desktop configs take priority over other saved configs. Hyprpaper's old and current syntax, local config includes, variables, file URIs, KDE wallpaper packages, GNOME slideshow definitions, and XDG config/state/Pictures locations are supported.
+
+Without a usable configured image, it checks standard user wallpaper folders, then `/usr/share/backgrounds`, `/usr/local/share/backgrounds`, `/usr/share/wallpapers`, `/usr/share/hyprland`, and `/usr/share/xfce4/backdrops`. Folder results are explicitly marked as fallbacks; they are not claimed to be the current wallpaper. If nothing is found, Picture shows `not found` and Custom still works. The bundled example is available by its explicit path.
+
+Queries have short timeouts. Config files and `.fehbg` are parsed as data, never sourced or executed. Only existing local image files are selected. The first usable monitor image is used when monitors have different wallpapers. Detection runs when setup/build is invoked; changing a desktop wallpaper later still requires rebuilding and reinstalling the snapshot.
+
+Format references: [Hyprpaper](https://wiki.hypr.land/hypr-ecosystem/user/hyprpaper/), [Waypaper](https://anufrievroman.gitbook.io/waypaper/configuration), [swww query changes](https://github.com/LGFae/swww/blob/main/CHANGELOG.md), [Sway output configuration](https://github.com/swaywm/sway/blob/master/sway/sway-output.5.scd).
+
 ## Native tests
 
 The preview runs in private user, mount, network, and PID namespaces. It does not select a system theme or modify the host daemon configuration. Headless previews require Xvfb and ImageMagick. Visible previews require X11 or XWayland.
 
 ```bash
+python3 scripts/test-wallpaper.py
 python3 scripts/test-setup.py
 python3 scripts/test-build-options.py
 python3 scripts/test-sddm-background.py

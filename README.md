@@ -26,7 +26,7 @@ cd titanfall-plymouth
 ./install.sh
 ```
 
-Use arrow keys and Enter to choose **SDDM**, **Picture**, or **Custom**. SDDM and Picture show the exact image path beside the choice; Picture uses the included wallpaper. Custom asks for a path (leave it blank for no picture). Then choose colors and speed. The wizard builds a preview and offers installation afterward.
+Use arrow keys and Enter to choose **SDDM**, **Picture**, or **Custom**. SDDM and Picture show the exact image path beside the choice. Picture detects your desktop/WM wallpaper, then checks standard wallpaper folders (marked as a fallback). Custom asks for a path (leave it blank for no picture). Then choose colors and speed. The wizard builds a preview and offers installation afterward.
 
 - Test without installation: `./install.sh --preview-only`
 - Restore the previous theme: `./install.sh --restore`
