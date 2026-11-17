@@ -14,6 +14,7 @@ import sys
 import termios
 import time
 import tty
+import unicodedata
 import uuid
 
 from build import animation_speed, hex_color
@@ -22,6 +23,28 @@ from sddm_background import SDDMImageNotFound, find_sddm_image
 ROOT = Path(__file__).resolve().parents[1]
 THEMES = Path('/usr/share/plymouth/themes')
 VARIANTS = {'black','white','custom'}
+
+
+def menu_lines(options, selected, columns):
+    # Wrap explicitly and leave the last column unused: terminal autowrap
+    # otherwise adds physical rows that cursor-up must also account for.
+    limit=max(2,columns-1)
+    labels=[f'  {"●" if i==selected else "○"} {option}' for i,option in enumerate(options)]
+    labels.append('  ↑/↓ to move · Enter to select')
+    rows=[]
+    for label in labels:
+        line=''
+        width=0
+        for character in label:
+            size=0 if unicodedata.combining(character) else (2 if unicodedata.east_asian_width(character) in ('W','F') else 1)
+            if width+size>limit:
+                rows.append(line)
+                line=''
+                width=0
+            line+=character
+            width+=size
+        rows.append(line)
+    return rows
 
 
 def choose(title, options, default=0):
@@ -37,11 +60,13 @@ def choose(title, options, default=0):
     fd=sys.stdin.fileno()
     previous=termios.tcgetattr(fd)
     def render():
-        for i,option in enumerate(options):
-            marker='●' if i==selected else '○'
-            print(f'\r\033[2K  {marker} {option}')
-        print('\r\033[2K  ↑/↓ to move · Enter to select',end='',flush=True)
-    render()
+        try: columns=os.get_terminal_size(sys.stdout.fileno()).columns
+        except (OSError,ValueError): columns=shutil.get_terminal_size().columns
+        rows=menu_lines(options,selected,columns)
+        sys.stdout.write('\r\033[2K'+'\n\r\033[2K'.join(rows))
+        sys.stdout.flush()
+        return len(rows)
+    rendered_rows=render()
     try:
         tty.setcbreak(fd)
         while True:
@@ -56,8 +81,9 @@ def choose(title, options, default=0):
             elif key.isdigit() and 1<=int(key)<=len(options): selected=int(key)-1
             elif key==b'\x04': raise EOFError
             else: continue
-            print(f'\033[{len(options)}A\r',end='')
-            render()
+            if rendered_rows>1: sys.stdout.write(f'\033[{rendered_rows-1}A')
+            sys.stdout.write('\r\033[J')
+            rendered_rows=render()
     finally:
         termios.tcsetattr(fd,termios.TCSADRAIN,previous)
         print()
