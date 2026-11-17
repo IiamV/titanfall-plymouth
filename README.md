@@ -36,6 +36,10 @@ The full screenshot is hidden until the individual pictures finish appearing. It
 
 Dependencies: Python 3, FFmpeg, ImageMagick, and Plymouth with its script plugin.
 
+The original media and logo are excluded from the published repository and its history. The ready-made demos above can be viewed without them. To build, supply your own `closing-pilot.mp4` at the repository root. Audio previews also require `machine-noise.m4a`, `marauder-corps.m4a`, and `the-line.m4a`. These paths are ignored by Git. The logo is unused.
+
+On the development machine, the originals are saved in the local Git stash named `local original media and logo`. Find it with `git stash list` and restore it with `git stash apply 'stash@{N}'`, using its actual index. Applying keeps the stash backup. Stashes are not pushed.
+
 ```bash
 python3 scripts/build.py --audio --sddm-preview
 ffplay -autoexit build/preview-black-audio.mp4
@@ -138,7 +142,7 @@ sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
 
 ## Files and checkpoints
 
-`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the single fixed outline image; clipping reveals it from the edges inward and removes it from the center outward without changing line coordinates. Generated build output is ignored by Git; the shareable GIF and audio MP4 demos are tracked in `docs/demo/`. The supplied original logo remains in the repository but is not loaded or copied into the theme.
+`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the single fixed outline image; clipping reveals it from the edges inward and removes it from the center outward without changing line coordinates. Generated build output is ignored by Git; the shareable GIF and audio MP4 demos are tracked in `docs/demo/`. The original logo is kept locally with the source media and is not loaded or copied into the theme.
 
 Implementation follows the [Plymouth script reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and installed examples. Changes use separate title-only conventional commits:
 
