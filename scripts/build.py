@@ -79,7 +79,6 @@ def build(audio, background=None):
         if background:
             run("magick", str(background.path) + "[0]", "-background", bg,
                 "-alpha", "remove", "-alpha", "off", "PNG24:" + str(theme / "background.png"))
-        run("magick", ROOT / "marauder-logo.png", "PNG32:" + str(theme / "marauder-logo.png"))
         run("magick", "-size", "16x16", f"xc:{bg}", theme / "panel.png")
         script = (ROOT / "theme/titanfall.script").read_text()
         for token, value in {"@BG@": "0" if bg == "black" else "1",
@@ -115,19 +114,7 @@ def build(audio, background=None):
             x, y, _, _ = panel["bounds"]
             filters.append(f"[{previous}][p{index}]overlay=x={x}:y={y}[s{index}]")
             previous = f"s{index}"
-        logo = lighting["logo"]
-        logo_index = len(panels) + 1
-        input_args += ["-loop", 1, "-framerate", fps, "-i", theme / "marauder-logo.png"]
-        top_start = panels["top"]["keys"][1][0]
-        top_rise = panels["top"]["keys"][-1][0] - top_start
-        x, y, _, height = panels["top"]["bounds"]
-        logo_x = logo["center"][0] - logo["size"]/2
-        logo_y = logo["center"][1] - logo["size"]/2
-        front = f"{height}*clip((T-{top_start})/{top_rise},0,1)-{logo_y-y}"
-        filters.append(f'[{logo_index}:v]scale={logo["size"]}:{logo["size"]},format=rgba,'
-                       f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*lt(Y,({front}))',"
-                       f'fade=t=out:st={fade_start}:d={fade_duration}:alpha=1[logo]')
-        filters.append(f'[{previous}][logo]overlay=x={logo_x}:y={logo_y}:shortest=1[out]')
+        filters.append(f'[{previous}]null[out]')
         preview = BUILD / f"preview-{variant}.mp4"
         backdrop_args = (["-loop", 1, "-framerate", fps, "-i", theme / "background.png"] if background else
                          ["-f", "lavfi", "-i", f"color=c={bg}:s=960x540:r={fps}:d={duration}"])
@@ -145,7 +132,7 @@ def build(audio, background=None):
         print(f"Built {name}: directional light-up; centered narrow bottom panel")
     manifest = {"source": lighting["source"], "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                 "source_duration": source_duration, "source_frames": metadata["streams"][0].get("nb_frames"),
-                "fps": fps, "panels": panels, "logo": logo, "mode": "directional-light-up",
+                "fps": fps, "panels": panels, "mode": "directional-light-up",
                 "artwork": lighting["artwork"], "artwork_sha256": hashlib.sha256((ROOT / lighting["artwork"]).read_bytes()).hexdigest(),
                 "fade_start_seconds": fade_start, "fade_end_seconds": fade_start + fade_duration,
                 "preview_duration": duration, "variants": ["black", "white"],

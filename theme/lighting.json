@@ -9,13 +9,6 @@
   "fade_delay": 0.15,
   "fade_duration": 0.8,
   "blank_hold": 1.0,
-  "logo": {
-    "center": [
-      480,
-      234
-    ],
-    "size": 128
-  },
   "panels": {
     "left": {
       "polygon": [
