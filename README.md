@@ -32,6 +32,44 @@ ffplay -autoexit build/preview-black-audio.mp4
 
 The custom desktop audio mix starts machine noise at 0 seconds, Marauder speech at 0.3 seconds, and `the-line.m4a` at 2.6 seconds. Plymouth's script interface has no audio playback API, so the boot themes are silent.
 
+## Responsive layout and transparent backgrounds
+
+Panel coordinates now fit the actual screen width and height independently, rather than cropping a fixed 16:9 layout. The emblem keeps its square aspect ratio. The layout recalculates when Plymouth reports a new viewport size. Native 4:3 and ultrawide renders are checked separately.
+
+The panel PNGs contain transparent faces with visible outlines. Plymouth runs before the graphical login session, so transparency cannot reveal a live SDDM window or desktop underneath it. Instead, this project can copy the same wallpaper or a packaged SDDM screenshot into the Plymouth theme and show it behind the transparent outlines. See the [official Plymouth description](https://wiki.freedesktop.org/www/Software/Plymouth/) for its early-boot role.
+
+Find the active installed theme's images without building or changing anything:
+
+```bash
+python3 scripts/sddm_background.py
+python3 scripts/sddm_background.py --preview
+```
+
+Discovery reads the standard SDDM configuration locations, honors the configured theme directory and theme configuration overrides, and searches the active theme under `/usr/share/sddm/themes` or `/usr/local/share/sddm/themes`. `--preview` reads the theme metadata's `Screenshot` entry, with common installed preview filenames as fallbacks. If the requested image is not found, the command explains which theme and paths were checked and exits with an error; it does not silently choose another theme.
+
+Use the installed theme's configured background:
+
+```bash
+python3 scripts/build.py --audio --sddm-background
+```
+
+Or use its packaged screenshot:
+
+```bash
+python3 scripts/build.py --audio --sddm-preview
+ffplay -autoexit build/preview-black.mp4
+```
+
+On the inspected machine, WarGames provides `Background.png` (plain black) and `preview.png` (a packaged example login-screen screenshot). A packaged screenshot is a static image with nonfunctional example controls, not a capture of the current live greeter. Screenshots fit completely inside the viewport without cropping; wallpaper images fill it while preserving aspect ratio.
+
+Use a custom desktop wallpaper instead:
+
+```bash
+python3 scripts/build.py --audio --background /absolute/path/to/wallpaper.jpg
+```
+
+Choose the black variant (white lines) for dark images, or the white variant (black lines) for light images. The selected image is copied into generated theme assets and remains visible after the outlines and emblem fade. It is a build-time snapshot: repeat the build and the installation/initramfs commands after changing the wallpaper. These options do not modify SDDM or desktop settings.
+
 ## Test actual Plymouth without installing
 
 These commands use private user, mount, network, and PID namespaces. They temporarily expose the built theme and preview configuration inside the preview process only. They do not change the selected system theme or rebuild the initramfs. Logs and screenshots go under `build/`.
@@ -48,12 +86,27 @@ If user namespaces are restricted, `unshare` reports an error. Do not run the pr
 For native headless checks, install Xvfb if needed (Arch/CachyOS package `xorg-server-xvfb`), then run:
 
 ```bash
+python3 scripts/build.py
 bash scripts/preview-plymouth.sh --headless white 8
 bash scripts/preview-plymouth.sh --headless black 8
 python3 scripts/check-previews.py
 ```
 
-The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom illumination, a `closed.png` image once all panels are lit, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm full panel coverage, matching middle/bottom widths, a spatial sliding reveal rather than uniform fading, fixed outline coordinates, a centered emblem, and a completely plain final frame. Logs are overwritten by each run.
+The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom illumination, a `closed.png` image once all panels are lit, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm full panel coverage, matching middle/bottom widths, a spatial sliding reveal rather than uniform fading, fixed outline coordinates, a centered emblem, and restoration of the original background after the final fade. Logs are overwritten by each run.
+
+For the dark SDDM screenshot and responsive layout checks:
+
+```bash
+python3 scripts/build.py --sddm-preview
+bash scripts/preview-plymouth.sh --headless black 8
+python3 scripts/check-previews.py --variant black
+bash scripts/preview-plymouth.sh --headless black 8 1024x768
+bash scripts/preview-plymouth.sh --headless black 8 1280x540
+python3 scripts/check-layouts.py
+python3 scripts/test-sddm-background.py
+```
+
+Non-default resolutions add the dimensions to screenshot filenames. The checks verify visible viewport borders, proportional middle/bottom placement, a centered square emblem, and an unchanged background after the final fade. Image-discovery tests cover configuration precedence, theme overrides, packaged screenshots, and missing files.
 
 Optional authentication rendering check:
 
