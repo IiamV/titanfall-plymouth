@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -22,23 +23,57 @@ def ffmpeg(*args):
     run("ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *args)
 
 
-def build(audio, background=None):
+def hex_color(value):
+    value = value.removeprefix("#")
+    if not re.fullmatch(r"[0-9a-fA-F]{3}([0-9a-fA-F]{3})?",value):
+        raise argparse.ArgumentTypeError("Use a hex color such as '#112233' or '#abc'")
+    if len(value)==3: value="".join(c*2 for c in value)
+    return "#"+value.lower()
+
+
+def animation_speed(value):
+    try: speed=float(value)
+    except ValueError: raise argparse.ArgumentTypeError("Speed must be a number from 0.25 to 4")
+    if not math.isfinite(speed) or not 0.25 <= speed <= 4:
+        raise argparse.ArgumentTypeError("Speed must be from 0.25 to 4; 1 is normal, 2 is twice as fast")
+    return speed
+
+
+def rgb(color):
+    return tuple(int(color[i:i+2],16) for i in (1,3,5))
+
+
+def scaled_config(speed):
+    config=json.loads(LIGHTING.read_text())
+    for panel in config["panels"].values():
+        panel["keys"]=[[time/speed,value] for time,value in panel["keys"]]
+    config["lines"]={key:value/speed for key,value in config["lines"].items()}
+    return config
+
+
+def audio_tempo(speed):
+    filters=[]
+    while speed<0.5: filters.append("atempo=0.5"); speed/=0.5
+    while speed>2: filters.append("atempo=2"); speed/=2
+    filters.append(f"atempo={speed}")
+    return ",".join(filters)
+
+
+def build(audio, background=None, panel_color=None, line_color=None, speed=1):
     for command in ("ffmpeg", "ffprobe", "magick"):
         if not shutil.which(command):
             raise SystemExit(f"Missing dependency: {command}")
-    config = json.loads(LIGHTING.read_text())
+    config = scaled_config(speed)
     source = ROOT / config["source"]
-    required = [source]
-    if audio:
-        required += [ROOT/name for name in ("machine-noise.m4a", "marauder-corps.m4a", "the-line.m4a")]
+    required = [ROOT/name for name in ("machine-noise.m4a", "marauder-corps.m4a", "the-line.m4a")] if audio else []
     missing = [path.name for path in required if not path.is_file()]
     if missing:
-        raise SystemExit("Missing local source media: "+", ".join(missing)+
-                         ". Supply your own files or restore the local originals stash; see README.md.")
-    metadata = json.loads(subprocess.check_output([
+        raise SystemExit("Missing local audio: "+", ".join(missing)+". Omit --audio or restore your local audio files.")
+    metadata = (json.loads(subprocess.check_output([
         "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
-        "format=duration:stream=nb_frames", "-of", "json", str(source)], text=True))
-    source_duration = float(metadata["format"]["duration"])
+        "format=duration:stream=nb_frames", "-of", "json", str(source)], text=True)) if source.is_file() else None)
+    reference_duration = float(metadata["format"]["duration"]) if metadata else config["reference_duration"]
+    source_duration = reference_duration/speed
     fps = config["fps"]
     panels = config["panels"]
     if set(panels) != {"top", "left", "middle", "right", "bottom"}:
@@ -72,7 +107,12 @@ def build(audio, background=None):
                   f'bounds["{name}"] = {json.dumps(panel["bounds"])};',
                   f'frame_count["{name}"] = {panel["frames"]};']
     BUILD.mkdir(exist_ok=True)
-    for variant, bg, fg in (("black", "black", "white"), ("white", "white", "black")):
+    palettes = [("black", "#000000", "#ffffff"), ("white", "#ffffff", "#000000")]
+    if panel_color or line_color:
+        panel_color = panel_color or "#000000"
+        automatic = "#000000" if sum(v*w for v,w in zip(rgb(panel_color),(0.2126,0.7152,0.0722)))>150 else "#ffffff"
+        palettes = [("custom",panel_color,line_color or automatic)]
+    for variant, bg, fg in palettes:
         name = f"titanfall-{variant}"
         theme = BUILD / "themes" / name
         if theme.exists():
@@ -170,7 +210,7 @@ def build(audio, background=None):
             shutil.copy2(theme / f"face-{part}-{count-1}.png", theme / f"face-{part}.png")
         run("magick", "-size", "16x16", f"xc:{bg}", theme / "panel.png")
         script = (ROOT / "theme/titanfall.script").read_text()
-        for token,value in {"@BG@":"0" if bg == "black" else "1", "@FG@":"1" if fg == "white" else "0",
+        for token,value in {"@BG@":",".join(str(v/255) for v in rgb(bg)), "@FG@":",".join(str(v/255) for v in rgb(fg)),
                             "@MOTION_SETUP@":"\n".join(setup)}.items():
             script = script.replace(token,value)
         (theme / f"{name}.script").write_text(script)
@@ -216,12 +256,14 @@ def build(audio, background=None):
                "-filter_complex",";".join(filters),"-map","[out]","-an","-t",duration,
                "-c:v","libx264","-crf",16,"-pix_fmt","yuv420p","-movflags","+faststart",preview)
         if audio:
+            tempo=audio_tempo(speed)
             ffmpeg("-i",preview,"-i",ROOT/"machine-noise.m4a","-i",ROOT/"marauder-corps.m4a","-i",ROOT/"the-line.m4a",
-                   "-filter_complex","[1:a]volume=0.6[a];[2:a]adelay=300:all=1[b];[3:a]adelay=2600:all=1[c];[a][b][c]amix=inputs=3:normalize=0,alimiter=limit=0.9[mix]",
+                   "-filter_complex",f"[1:a]{tempo},volume=0.6[a];[2:a]{tempo},adelay={round(300/speed)}:all=1[b];[3:a]{tempo},adelay={round(2600/speed)}:all=1[c];[a][b][c]amix=inputs=3:normalize=0,alimiter=limit=0.9[mix]",
                    "-map","0:v","-map","[mix]","-c:v","copy","-c:a","aac","-t",duration,BUILD/f"preview-{variant}-audio.mp4")
         print(f"Built {name}: inward line entrance, picture slide/fade, outward line exit")
-    manifest = {"source":config["source"],"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
-                "source_duration":source_duration,"source_frames":metadata["streams"][0].get("nb_frames"),"fps":fps,
+    manifest = {"source":config["source"],"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest() if source.is_file() else None,
+                "source_duration":reference_duration,"source_frames":metadata["streams"][0].get("nb_frames") if metadata else None,"fps":fps,
+                "speed":speed,"palettes":{v:{"panel":bg,"lines":fg} for v,bg,fg in palettes},
                 "panels":panels,"mode":"inward-pictures-outward","assembly_time":assembly_time,
                 "lines":{"animation":"horizontal-endpoints","frames":line_frames,"segments":segments,"horizontal_traces":horizontal_traces,**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
                 "preview_duration":duration,"artwork":config["artwork"],
@@ -231,7 +273,10 @@ def build(audio, background=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--audio",action="store_true")
+    parser.add_argument("--audio",action="store_true",help="mix local audio files into MP4 previews")
+    parser.add_argument("--panel-color",type=hex_color,help="hex backdrop/solid-panel color; creates the custom variant")
+    parser.add_argument("--line-color",type=hex_color,help="hex seam color; creates the custom variant")
+    parser.add_argument("--speed",type=animation_speed,default=1,help="animation speed multiplier, 0.25..4 (default: 1)")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--background",type=Path,help="picture to cut into the fixed panel shapes")
     group.add_argument("--sddm-background",action="store_true")
@@ -248,4 +293,4 @@ if __name__ == "__main__":
     except SDDMImageNotFound as error:
         parser.error(str(error))
     if background: print(f"Using {background.kind}: {background.path}",flush=True)
-    build(args.audio,background)
+    build(args.audio,background,args.panel_color,args.line_color,args.speed)

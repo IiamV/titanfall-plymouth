@@ -1,5 +1,6 @@
 {
   "source": "closing-pilot.mp4",
+  "reference_duration": 5.438767,
   "artwork": "theme/panels/generated-panels-v3.png",
   "canvas": [960, 540],
   "fps": 24,

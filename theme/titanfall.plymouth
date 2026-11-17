@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=Titanfall Pilot Link
-Description=Fixed diagonal cockpit seams with fade-dominant pictures and center-out line fill
+Description=Cockpit picture panels with synchronized internal seams and configurable colors and speed
 ModuleName=script
 
 [script]

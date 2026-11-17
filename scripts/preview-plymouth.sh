@@ -22,15 +22,15 @@ while [[ ${1:-} == --* ]]; do
     shift
 done
 variant=${1:-white}
-[[ $variant == black || $variant == white ]] || { echo 'Variant must be black or white' >&2; exit 1; }
+[[ $variant == black || $variant == white || $variant == custom ]] || { echo 'Variant must be black, white or custom' >&2; exit 1; }
 if (( $# )); then shift; fi
-seconds=${1:-12}
+seconds=${1:-$(python3 -c 'import json,math,sys; print(max(8,math.ceil(json.load(open(sys.argv[1]))["preview_duration"])+1))' "$ROOT/build/manifest.json")}
 resolution=${2:-960x540}
 [[ $resolution =~ ^[1-9][0-9]{1,3}x[1-9][0-9]{1,3}$ ]] || { echo 'Invalid preview resolution' >&2; exit 1; }
 capture_prefix="$ROOT/build/plymouth-$variant"
 if [[ $resolution != 960x540 ]]; then capture_prefix+="-$resolution"; fi
 [[ $seconds =~ ^[0-9]+$ ]] && (( seconds >= 8 && seconds <= 120 )) || {
-    echo 'Usage: scripts/preview-plymouth.sh [--headless] [--diagnostics] [black|white] [seconds: 8..120] [WIDTHxHEIGHT]' >&2; exit 1;
+    echo 'Usage: scripts/preview-plymouth.sh [--headless] [--diagnostics] [black|white|custom] [seconds: 8..120] [WIDTHxHEIGHT]' >&2; exit 1;
 }
 mount --make-rprivate /
 # ThemeDir is supported by Plymouth; bind only a private daemon configuration.

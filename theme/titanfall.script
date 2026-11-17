@@ -1,7 +1,7 @@
 # Generated configuration and palette.
 @MOTION_SETUP@
-Window.SetBackgroundTopColor(@BG@, @BG@, @BG@);
-Window.SetBackgroundBottomColor(@BG@, @BG@, @BG@);
+Window.SetBackgroundTopColor(@BG@);
+Window.SetBackgroundBottomColor(@BG@);
 width = Window.GetWidth(); height = Window.GetHeight();
 scale_x = width / 960; scale_y = height / 540;
 origin_x = Window.GetX(); origin_y = Window.GetY();
@@ -83,7 +83,7 @@ message_sprite = Sprite();
 message_sprite.SetPosition(Window.GetX() + 20, Window.GetY() + height - 45, 105);
 fun center_text(sprite, text, y)
 {
-    image = Image.Text(text, @FG@, @FG@, @FG@, 1, "Sans 14");
+    image = Image.Text(text, @FG@, 1, "Sans 14");
     sprite.SetImage(image);
     sprite.SetPosition(Window.GetX() + (width - image.GetWidth()) / 2,
                        Window.GetY() + height * y, 101);
@@ -110,7 +110,7 @@ fun display_password(prompt, bullets)
 }
 fun display_message(text)
 {
-    message_sprite.SetImage(Image.Text(text, @FG@, @FG@, @FG@, 1, "Sans 12"));
+    message_sprite.SetImage(Image.Text(text, @FG@, 1, "Sans 12"));
     message_sprite.SetOpacity(1);
 }
 fun hide_message(text) { message_sprite.SetOpacity(0); }
