@@ -22,7 +22,7 @@ These demos use the installed WarGames theme's packaged SDDM screenshot. The GIF
 
 Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into an expanded top header, left and right sides, a middle panel, and the narrow bottom panel. Side-to-top seams are continuous diagonals; the middle-to-top seam stays horizontal. Only internal seams are drawn; there is no outer screen border or logo.
 
-- The thicker outlines stay in place. Each seam draws from its two endpoints toward its own midpoint before the pictures appear, then retracts from its midpoint toward the endpoints after assembly. Horizontal seams animate along their length, never as a top-down wipe.
+- The thicker outlines stay in place. Only the two horizontal seams between the middle panel and the top/bottom panels draw from their endpoints toward their midpoint, then retract from their midpoint toward their endpoints. All diagonal and vertical seams retain the screen-centered inward/outward wipe.
 - The middle picture only fades in, with zero movement.
 - Other pictures mostly fade, with small movement **inside their fixed masks**: 24 pixels on the sides, 12 on top, 6 on the bottom at the reference resolution.
 - Top and bottom finish in 0.22 and 0.20 seconds; side fades take 0.55 seconds and the middle fade takes 0.70 seconds.
@@ -142,7 +142,7 @@ sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
 
 ## Files and checkpoints
 
-`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the complete internal outline image. Precomputed `lines-<frame>.png` assets reveal each seam along its own length from both endpoints, and run in reverse for the center-out exit. Native Plymouth and video demos use the same line frames. Generated build output is ignored by Git; the shareable GIF and audio MP4 demos are tracked in `docs/demo/`. The original logo is kept locally with the source media and is not loaded or copied into the theme.
+`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the complete internal outline image. Precomputed `lines-<frame>.png` assets animate only the two horizontal middle-panel seams along their length. Other seams retain the screen-centered wipe. The frames run in reverse for the exit. Native Plymouth and video demos use the same line frames. Generated build output is ignored by Git; the shareable GIF and audio MP4 demos are tracked in `docs/demo/`. The original logo is kept locally with the source media and is not loaded or copied into the theme.
 
 Implementation follows the [Plymouth script reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and installed examples. Changes use separate title-only conventional commits:
 
