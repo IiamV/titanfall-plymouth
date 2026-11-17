@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build stationary generated cockpit panels with sequential illumination."""
+"""Build generated cockpit panels with directional sliding light reveals."""
 import argparse
 import hashlib
 import json
@@ -41,9 +41,14 @@ def build(audio):
         times = [time for time, _ in panel["keys"]]
         if times != sorted(set(times)) or times[-1] > source_duration:
             raise SystemExit("Invalid panel keyframe times")
+    for panel in panels.values():
+        xs, ys = zip(*panel["polygon"])
+        panel["bounds"] = [min(xs), min(ys), max(xs)-min(xs), max(ys)-min(ys)]
     setup = [f"fps = {fps};", f"fade_start = {fade_start};", f"fade_duration = {fade_duration};"]
     for name, panel in panels.items():
         setup.append(f'lighting["{name}"] = {json.dumps(panel["keys"])};')
+        setup.append(f'bounds["{name}"] = {json.dumps(panel["bounds"])};')
+        setup.append(f'direction["{name}"] = "{panel["reveal"]}";')
     BUILD.mkdir(exist_ok=True)
     for variant, bg, fg in (("black", "black", "white"), ("white", "white", "black")):
         name = f"titanfall-{variant}"
@@ -66,7 +71,8 @@ def build(audio):
                    "-f", "lavfi", "-i", f"color=c={fg}:s=960x540:r={fps}",
                    "-filter_complex", "[0:v]scale=960:540,format=gray,"
                    "lut=y='if(lt(val,160),255,0)'[e];[1:v]format=gray[m];"
-                   "[e][m]blend=all_mode=multiply[a];[2:v][a]alphamerge,format=rgba[out]",
+                   "[e][m]blend=all_mode=multiply[a];[2:v][a]alphamerge,format=rgba,"
+                   f"crop={panel['bounds'][2]}:{panel['bounds'][3]}:{panel['bounds'][0]}:{panel['bounds'][1]}[out]",
                    "-map", "[out]", "-frames:v", 1, theme / f"{part}.png")
         run("magick", ROOT / "marauder-logo.png", "PNG32:" + str(theme / "marauder-logo.png"))
         run("magick", "-size", "16x16", f"xc:{bg}", theme / "panel.png")
@@ -82,25 +88,33 @@ def build(audio):
         filters = []
         previous = "0:v"
         input_args = []
-        # Static full-canvas layers; only their alpha changes over time.
+        # Reveal clips move across the ink; source geometry stays registered.
         for index, (part, panel) in enumerate(panels.items(), start=1):
             input_args += ["-loop", 1, "-framerate", fps, "-i", theme / f"{part}.png"]
             start = panel["keys"][1][0]
             rise = panel["keys"][-1][0] - start
-            filters.append(f"[{index}:v]format=rgba,fade=t=in:st={start}:d={rise}:alpha=1,"
+            progress = f"clip((T-{start})/{rise},0,1)"
+            condition = {"right": f"lt(X,W*({progress}))", "left": f"gte(X,W*(1-({progress})))",
+                         "down": f"lt(Y,H*({progress}))", "up": f"gte(Y,H*(1-({progress})))"}[panel["reveal"]]
+            filters.append(f"[{index}:v]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
+                           f"a='alpha(X,Y)*({condition})',"
                            f"fade=t=out:st={fade_start}:d={fade_duration}:alpha=1[p{index}]")
-            filters.append(f"[{previous}][p{index}]overlay=x=0:y=0[s{index}]")
+            x, y, _, _ = panel["bounds"]
+            filters.append(f"[{previous}][p{index}]overlay=x={x}:y={y}[s{index}]")
             previous = f"s{index}"
         logo = lighting["logo"]
         logo_index = len(panels) + 1
         input_args += ["-loop", 1, "-framerate", fps, "-i", theme / "marauder-logo.png"]
         top_start = panels["top"]["keys"][1][0]
         top_rise = panels["top"]["keys"][-1][0] - top_start
+        x, y, _, height = panels["top"]["bounds"]
+        logo_x = logo["center"][0] - logo["size"]/2
+        logo_y = logo["center"][1] - logo["size"]/2
+        front = f"{height}*clip((T-{top_start})/{top_rise},0,1)-{logo_y-y}"
         filters.append(f'[{logo_index}:v]scale={logo["size"]}:{logo["size"]},format=rgba,'
-                       f'fade=t=in:st={top_start}:d={top_rise}:alpha=1,'
+                       f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*lt(Y,({front}))',"
                        f'fade=t=out:st={fade_start}:d={fade_duration}:alpha=1[logo]')
-        filters.append(f'[{previous}][logo]overlay=x={logo["center"][0] - logo["size"]/2}:'
-                       f'y={logo["center"][1] - logo["size"]/2}:shortest=1[out]')
+        filters.append(f'[{previous}][logo]overlay=x={logo_x}:y={logo_y}:shortest=1[out]')
         preview = BUILD / f"preview-{variant}.mp4"
         ffmpeg("-f", "lavfi", "-i", f"color=c={bg}:s=960x540:r={fps}:d={duration}",
                *input_args, "-filter_complex", ";".join(filters), "-map", "[out]", "-an",
@@ -114,10 +128,10 @@ def build(audio):
                    "[a][b][c]amix=inputs=3:normalize=0,alimiter=limit=0.9[mix]",
                    "-map", "0:v", "-map", "[mix]", "-c:v", "copy", "-c:a", "aac",
                    "-t", duration, "-movflags", "+faststart", BUILD / f"preview-{variant}-audio.mp4")
-        print(f"Built {name}: generated stationary panels; sequential illumination")
+        print(f"Built {name}: directional light-up; centered narrow bottom panel")
     manifest = {"source": lighting["source"], "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                 "source_duration": source_duration, "source_frames": metadata["streams"][0].get("nb_frames"),
-                "fps": fps, "panels": panels, "logo": logo, "mode": "stationary-light-up",
+                "fps": fps, "panels": panels, "logo": logo, "mode": "directional-light-up",
                 "artwork": lighting["artwork"], "artwork_sha256": hashlib.sha256((ROOT / lighting["artwork"]).read_bytes()).hexdigest(),
                 "fade_start_seconds": fade_start, "fade_end_seconds": fade_start + fade_duration,
                 "preview_duration": duration, "variants": ["black", "white"]}

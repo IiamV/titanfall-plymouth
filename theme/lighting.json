@@ -1,6 +1,6 @@
 {
   "source": "closing-pilot.mp4",
-  "artwork": "theme/panels/generated-panels.png",
+  "artwork": "theme/panels/generated-panels-v2.png",
   "canvas": [
     960,
     540
@@ -41,11 +41,11 @@
         ],
         [
           330,
-          463
+          540
         ],
         [
           0,
-          463
+          540
         ]
       ],
       "keys": [
@@ -61,7 +61,8 @@
           0.833333,
           1
         ]
-      ]
+      ],
+      "reveal": "right"
     },
     "right": {
       "polygon": [
@@ -75,11 +76,11 @@
         ],
         [
           960,
-          463
+          540
         ],
         [
           629,
-          463
+          540
         ],
         [
           629,
@@ -107,24 +108,25 @@
           1.5,
           1
         ]
-      ]
+      ],
+      "reveal": "left"
     },
     "bottom": {
       "polygon": [
         [
-          0,
+          330,
           463
         ],
         [
-          960,
+          629,
           463
         ],
         [
-          960,
+          629,
           540
         ],
         [
-          0,
+          330,
           540
         ]
       ],
@@ -141,7 +143,8 @@
           2.333333,
           1
         ]
-      ]
+      ],
+      "reveal": "up"
     },
     "top": {
       "polygon": [
@@ -199,7 +202,8 @@
           1.166667,
           1
         ]
-      ]
+      ],
+      "reveal": "down"
     }
   }
 }

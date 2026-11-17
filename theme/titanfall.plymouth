@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=Titanfall Pilot Link
-Description=Generated full-screen stationary cockpit panels with sequential illumination and a shared logo fade
+Description=Generated full-screen cockpit panels with directional sliding light reveals and a shared logo fade
 ModuleName=script
 
 [script]

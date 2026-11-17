@@ -4,22 +4,40 @@ Window.SetBackgroundTopColor(@BG@, @BG@, @BG@);
 Window.SetBackgroundBottomColor(@BG@, @BG@, @BG@);
 width = Window.GetWidth();
 height = Window.GetHeight();
-# Every full-canvas panel stays fixed; illumination changes opacity only.
+# Image coordinates stay registered while cropped reveal fronts slide inward.
 scale = Math.Max(width / 960, height / 540);
 origin_x = Window.GetX() + (width - 960 * scale) / 2;
 origin_y = Window.GetY() + (height - 540 * scale) / 2;
-left = Sprite(Image("left.png").Scale(960 * scale, 540 * scale));
-right = Sprite(Image("right.png").Scale(960 * scale, 540 * scale));
-bottom = Sprite(Image("bottom.png").Scale(960 * scale, 540 * scale));
-top = Sprite(Image("top.png").Scale(960 * scale, 540 * scale));
-left.SetPosition(origin_x, origin_y, 1);
-right.SetPosition(origin_x, origin_y, 1);
-bottom.SetPosition(origin_x, origin_y, 2);
-top.SetPosition(origin_x, origin_y, 3);
+left_image = Image("left.png").Scale(bounds["left"][2] * scale, bounds["left"][3] * scale);
+right_image = Image("right.png").Scale(bounds["right"][2] * scale, bounds["right"][3] * scale);
+bottom_image = Image("bottom.png").Scale(bounds["bottom"][2] * scale, bounds["bottom"][3] * scale);
+top_image = Image("top.png").Scale(bounds["top"][2] * scale, bounds["top"][3] * scale);
+left = Sprite(); right = Sprite(); bottom = Sprite(); top = Sprite();
 logo_size = Math.Int(128 * scale);
-logo = Sprite(Image("marauder-logo.png").Scale(logo_size, logo_size));
-logo.SetPosition(origin_x + 480 * scale - logo_size / 2,
-                 origin_y + 234 * scale - logo_size / 2, 4);
+logo_image = Image("marauder-logo.png").Scale(logo_size, logo_size);
+logo = Sprite();
+fun reveal(sprite, image, way, progress, x, y, z, fade)
+{
+    sprite.SetOpacity(0);
+    if (progress <= 0) return;
+    image_width = image.GetWidth();
+    image_height = image.GetHeight();
+    crop_x = 0; crop_y = 0;
+    crop_width = image_width; crop_height = image_height;
+    if (way == "right" || way == "left")
+    {
+        crop_width = Math.Max(1, Math.Int(image_width * progress));
+        if (way == "left") crop_x = image_width - crop_width;
+    }
+    else
+    {
+        crop_height = Math.Max(1, Math.Int(image_height * progress));
+        if (way == "up") crop_y = image_height - crop_height;
+    }
+    sprite.SetImage(image.Crop(crop_x, crop_y, crop_width, crop_height));
+    sprite.SetPosition(x + crop_x, y + crop_y, z);
+    sprite.SetOpacity(fade);
+}
 fun sample(keys, seconds)
 {
     if (seconds <= keys[0][0]) return keys[0][1];
@@ -86,11 +104,19 @@ fun refresh()
 {
     seconds = tick / fps;
     fade = 1 - Math.Clamp((seconds - fade_start) / fade_duration, 0, 1);
-    left.SetOpacity(sample(lighting["left"], seconds) * fade);
-    right.SetOpacity(sample(lighting["right"], seconds) * fade);
-    bottom.SetOpacity(sample(lighting["bottom"], seconds) * fade);
-    top.SetOpacity(sample(lighting["top"], seconds) * fade);
-    logo.SetOpacity(sample(lighting["top"], seconds) * fade);
+    reveal(left, left_image, direction["left"], sample(lighting["left"], seconds),
+           origin_x + bounds["left"][0] * scale, origin_y + bounds["left"][1] * scale, 1, fade);
+    reveal(right, right_image, direction["right"], sample(lighting["right"], seconds),
+           origin_x + bounds["right"][0] * scale, origin_y + bounds["right"][1] * scale, 1, fade);
+    reveal(bottom, bottom_image, direction["bottom"], sample(lighting["bottom"], seconds),
+           origin_x + bounds["bottom"][0] * scale, origin_y + bounds["bottom"][1] * scale, 2, fade);
+    reveal(top, top_image, direction["top"], sample(lighting["top"], seconds),
+           origin_x + bounds["top"][0] * scale, origin_y + bounds["top"][1] * scale, 3, fade);
+    # Reveal the fixed emblem with the same scan front crossing the main panel.
+    front = bounds["top"][3] * sample(lighting["top"], seconds);
+    logo_progress = Math.Clamp((front - (234 - 128 / 2 - bounds["top"][1])) / 128, 0, 1);
+    reveal(logo, logo_image, "down", logo_progress,
+           origin_x + (480 - 128 / 2) * scale, origin_y + (234 - 128 / 2) * scale, 4, fade);
     tick++;
 }
 Plymouth.SetRefreshRate(fps);
