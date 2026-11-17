@@ -1,13 +1,13 @@
 # Titanfall Pilot Link for Plymouth
 
-A stationary cockpit-panel light-up sequence using image-generated artwork based on stills from the complete local `closing-pilot.mp4` reference. Four adjoining panel faces cover the full screen: left, right, a large central/top panel, and the bottom strip. The emblem stays in the center of the large central/top panel. Panel positions never move; outlines illuminate in sequence, then all outlines and the emblem fade together.
+A cockpit-panel light-up sequence with sliding light reveals using image-generated artwork based on stills from the complete local `closing-pilot.mp4` reference. Four adjoining panel faces cover the full screen: left, right, a large central/top panel, and a narrow centered bottom panel. The emblem stays in the center of the large central/top panel. The light reveals sweep inward from the sides, down the main panel, and up the bottom panel. The artwork stays registered in place; all outlines and the emblem fade together at the end.
 
 - `titanfall-white`: white panel faces, black outlines.
 - `titanfall-black`: black panel faces, white outlines.
 
-The selected artwork is the **first generated image**, with its original bottom-panel proportions. The later thin-bottom edit was discarded at the user's request. The large central area is a panel face, not an open viewport.
+The selected artwork preserves the restored image's bottom-panel height and narrows its width to match the middle panel's lower edge. The left and right panel faces extend to the bottom of the screen. The central area is a panel face, not an open viewport.
 
-The built-in image generator produced [the artwork](theme/panels/generated-panels.png); [the selected prompt and reference details](theme/panels/generation-prompt.txt) are saved alongside it. The build converts its monochrome outlines into per-panel alpha layers, removing faint paper grain during palette conversion. It does not edge-detect gameplay textures or add panel translation.
+The built-in image generator produced [the artwork](theme/panels/generated-panels-v2.png); [the selected prompt and reference details](theme/panels/generation-prompt-v2.txt) are saved alongside it. The build converts its monochrome outlines into per-panel alpha layers, removing faint paper grain during palette conversion. It does not edge-detect gameplay textures or add panel translation.
 
 Illumination timings are recorded in `theme/lighting.json`. The build retains the full local reference duration (about 5.44 seconds), adds a 0.15-second hold, then fades all outlines and the emblem over 0.8 seconds. Original media is never trimmed or overwritten.
 
@@ -21,7 +21,7 @@ ffplay -autoexit build/preview-white.mp4
 ffplay -autoexit build/preview-black.mp4
 ```
 
-The native Plymouth theme and desktop previews use the same fixed layout and illumination keyframes. The emblem lights up with the large central/top panel and remains at its center.
+The native Plymouth theme and desktop previews use the same fixed layout and illumination keyframes. The emblem is revealed by the same sliding light front as the large central/top panel and remains anchored at its center.
 
 Optional desktop previews with the supplied sound clips:
 
@@ -53,7 +53,7 @@ bash scripts/preview-plymouth.sh --headless black 8
 python3 scripts/check-previews.py
 ```
 
-The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom illumination, a `closed.png` image once all panels are lit, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm full panel coverage, unchanged outline coordinates during illumination, a fixed centered emblem on the main/top panel, and a completely plain final frame. Logs are overwritten by each run.
+The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom illumination, a `closed.png` image once all panels are lit, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm full panel coverage, matching middle/bottom widths, a spatial sliding reveal rather than uniform fading, fixed outline coordinates, a centered emblem, and a completely plain final frame. Logs are overwritten by each run.
 
 Optional authentication rendering check:
 
