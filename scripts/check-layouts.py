@@ -20,17 +20,11 @@ for width, height in [(1024, 768), (1280, 540)]:
     def ink(x, y):
         i = (y * width + x) * 3
         return max(abs(data[i+c] - baseline[i+c]) for c in range(3)) > 30
-    # The packaged SDDM screenshot has its own white border, so compare edge
-    # visibility directly; a difference from the background would be ambiguous.
-    def visible(x, y):
-        i = (y * width + x) * 3
-        return min(data[i:i+3]) > 210
-    for x in [0, width - 1]:
-        assert sum(visible(x, y) for y in range(height)) > height * 0.9, "A side border was cropped"
-    for y in [0, height - 1]:
-        assert sum(visible(x, y) for x in range(width)) > width * 0.9, "A horizontal border was cropped"
-    # This internal seam distinguishes responsive placement from a cropped
-    # 16:9 image even when the backdrop supplies a matching outer border.
+    # Internal seams can meet the screen edge, but no full rim is drawn.
+    for x in (0,width-1):
+        assert sum(ink(x,y) for y in range(height)) < height*0.1, "Outer side border remains"
+    for y in (0,height-1):
+        assert sum(ink(x,y) for x in range(width)) < width*0.1, "Outer horizontal border remains"
     seam_y = int(bottom_bounds[1] * height / 540)
     rows = [(y, [x for x in range(width//10, width*9//10) if ink(x, y)])
             for y in range(seam_y - 4, seam_y + 5)]
@@ -45,4 +39,4 @@ for width, height in [(1024, 768), (1280, 540)]:
         assert data[start:end] == baseline[start:end], "A logo remains in the main panel"
     assert all(max(initial[i:i+3])-min(initial[i:i+3])<=4 for i in range(0,len(initial),3)), "A picture is visible behind the initial fixed outlines"
     assert baseline != initial, "The assembled SDDM image is missing"
-    print(f"{width}x{height}: uncropped panel borders, no logo, inward line entrance, assembled SDDM image")
+    print(f"{width}x{height}: responsive internal seams, no outer border, no logo, inward line entrance, assembled SDDM image")

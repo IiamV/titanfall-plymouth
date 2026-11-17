@@ -72,6 +72,9 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
     photo=pixels(theme/"assembled.png")
     line=pixels(theme/"lines.png","rgba")
     ink=line[3::4]
+    assert not any(ink[x] or ink[(H-1)*W+x] for x in range(10,W-10) if abs(x-332)>5 and abs(x-626)>5), "Outer horizontal border remains"
+    for x in (0,W-1):
+        assert sum(ink[y*W+x]>0 for y in range(H))<H*0.1, "Outer side border remains"
     initial=pixels(str(prefix)+"-background.png")
     active=[point for point in range(W*H) if any(initial[point*3+c]!=bg for c in range(3))]
     assert not active, "Picture or outlines visible before entrance"
