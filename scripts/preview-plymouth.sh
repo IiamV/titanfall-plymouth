@@ -88,20 +88,29 @@ capture() {
         magick import -window root "$capture_prefix-$1.png"
     fi
 }
+preview_started=$(python3 -c 'import time; print(time.monotonic())')
+wait_until() {
+    python3 -c 'import sys,time; time.sleep(max(0,float(sys.argv[1])+float(sys.argv[2])-time.monotonic()))' "$preview_started" "$1"
+}
 capture background
-sleep 0.65
-capture phase-left
-sleep 0.25
-capture phase-top-motion
-sleep 0.2
-capture phase-right
-sleep 0.4
+wait_until 0.34
 capture phase-top
-sleep 0.4
+wait_until 0.72
+capture phase-left
+wait_until 1.03
+capture phase-middle
+wait_until 1.1
+capture phase-right
+wait_until 1.58
 capture phase-bottom
-sleep 0.5
+wait_until 1.82
 capture closed
-sleep 0.6
+wait_until 2.15
+capture line-early
+wait_until 2.55
+capture line-late
+wait_until 3.05
+capture lit
 if $diagnostics; then
     plymouth display-message --text='PILOT LINK // diagnostic message'
     # Synthetic prompt: never enter a real password during this preview.
@@ -115,10 +124,8 @@ if $diagnostics; then
     # Keep the diagnostic dialog active to verify it survives the final fade.
     kill "$prompt_pid" 2>/dev/null || true
     plymouth hide-message --text='PILOT LINK // diagnostic message'
-    sleep "$((seconds - 5))"
-else
-    sleep "$((seconds - 3))"
 fi
+wait_until "$seconds"
 if $headless && command -v magick >/dev/null; then
     magick import -window root "$capture_prefix-screenshot.png"
 fi
