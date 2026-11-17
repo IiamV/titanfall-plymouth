@@ -86,10 +86,20 @@ def build(audio, background=None):
                    "-pix_fmt", "rgb24", theme / "assembled.png")
         else:
             run("magick", "-size", "960x540", f"xc:{bg}", "PNG24:"+str(theme / "assembled.png"))
-        # One full-canvas outline image is always registered at the origin.
-        ffmpeg("-i", ROOT / config["artwork"], "-f", "lavfi", "-i", f"color=c={fg}:s=960x540",
-               "-filter_complex", "[0:v]scale=960:540,format=gray,lut=y='if(lt(val,160),255,0)'[a];"
-               "[1:v][a]alphamerge,format=rgba[out]", "-map", "[out]", "-frames:v", 1, theme / "lines.png")
+        # Draw internal polygon edges only; no stroke follows the screen rim.
+        segments = set()
+        for panel in panels.values():
+            points = panel["polygon"]
+            for a, b in zip(points, points[1:]+points[:1]):
+                if (a[0] == b[0] and a[0] in (0,960)) or (a[1] == b[1] and a[1] in (0,540)):
+                    continue
+                segments.add(tuple(sorted((tuple(a),tuple(b)))))
+        strokes = "".join(f'<line x1="{a[0]}" y1="{a[1]}" x2="{b[0]}" y2="{b[1]}"/>'
+                          for a,b in sorted(segments))
+        outlines = theme / "lines.svg"
+        outlines.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540">'
+                            f'<g stroke="{fg}" stroke-width="6" stroke-linecap="round">{strokes}</g></svg>')
+        run("magick", "-background", "none", outlines, "PNG32:"+str(theme / "lines.png"))
         for part, panel in panels.items():
             points = " ".join(f"{x},{y}" for x,y in panel["polygon"])
             mask_svg = theme / f"mask-{part}.svg"
