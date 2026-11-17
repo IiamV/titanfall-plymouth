@@ -2,15 +2,15 @@
 
 Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into an expanded top header, left and right sides, a middle panel, and the narrow bottom panel. Side-to-top seams are continuous diagonals; the middle-to-top seam stays horizontal. No logo is drawn.
 
-- The thicker outlines stay in place. They start faint, then fill brightly from the center outward after all pictures finish appearing.
+- The thicker outlines stay in place. They draw from the screen edges inward before the pictures appear, then retract from the center outward after assembly.
 - The middle picture only fades in, with zero movement.
-- Other pictures mostly fade, with small movement **inside their fixed masks**: 12 pixels on the sides, 8 on top, 5 on the bottom at the reference resolution.
+- Other pictures mostly fade, with small movement **inside their fixed masks**: 24 pixels on the sides, 12 on top, 6 on the bottom at the reference resolution.
 - Top and bottom finish in 0.22 and 0.20 seconds; side fades take 0.55 seconds and the middle fade takes 0.70 seconds.
-- Picture assembly finishes at 1.70 seconds. Center-out line fill runs from 1.85 to 2.75 seconds.
+- Inward line drawing runs from 0.10 to 0.95 seconds. Pictures appear from 1.05 to 2.50 seconds; outward line removal runs from 2.65 to 3.50 seconds.
 
 The header is enlarged by shortening the middle and side panels. The bottom width matches the middle panel's lower stem. Black and white variants control the empty-screen and outline colors; the screenshot keeps its colors. For the installed dark WarGames picture, use the black variant with white outlines.
 
-The full screenshot is hidden until the individual pictures finish appearing. It then replaces their face layers to avoid alpha-edge rounding seams. The fixed outlines fade together after the full reference runtime; the completed screenshot remains for the login-screen handoff. A packaged SDDM screenshot is static, with noninteractive example controls.
+The full screenshot is hidden until the individual pictures finish appearing. It then replaces their face layers to avoid alpha-edge rounding seams. The fixed outlines retract outward after the picture assembly; the completed screenshot remains for the login-screen handoff. A packaged SDDM screenshot is static, with noninteractive example controls.
 
 ## Build and review before installation
 
@@ -44,7 +44,7 @@ Discovery reads standard SDDM configuration locations, respects theme directorie
 
 ## Layout and timing
 
-The [generated panel artwork](theme/panels/generated-panels-v3.png) and [its prompt](theme/panels/generation-prompt-v3.txt) define the silhouettes. `theme/lighting.json` records the five masks, small internal picture offsets, fade times, and center-out line-fill timing. The entire 5.44-second local video remains the timing reference; original media is never trimmed or overwritten.
+The [generated panel artwork](theme/panels/generated-panels-v3.png) and [its prompt](theme/panels/generation-prompt-v3.txt) define the silhouettes. `theme/lighting.json` records the five masks, small internal picture offsets, fade times, and inward entrance and outward exit timing. The entire 5.44-second local video remains the timing reference; original media is never trimmed or overwritten.
 
 The snapshot is fitted to the 960×540 assembly canvas before cutting: packaged SDDM screenshots are contained without cropping, while wallpapers cover the canvas. The complete canvas and all panel coordinates resize with the screen. The responsive layout is checked at 4:3 and ultrawide sizes.
 
@@ -73,9 +73,9 @@ python3 scripts/check-layouts.py
 python3 scripts/test-sddm-background.py
 ```
 
-`build/` stores the initial fixed faint outlines, partial-picture captures, pre-fill and center-out fill stages, the fully lit frame, and the final screenshot after outlines fade. The checks verify fixed masks and outline coordinates, thicker diagonal seams, zero middle movement, faster top/bottom timing, center-out line fill, absence of a logo, and exact final screenshot reconstruction. Picture pixels cannot escape their panel masks. The early-fill check needs a contrasting image; black lines on a dark SDDM picture are verified using the diagnostic picture instead. Responsive checks verify visible borders and proportional panel placement. Discovery tests cover configuration precedence, overrides, packaged screenshots, and missing files.
+`build/` stores the blank starting frame, inward line drawing stages, partial-picture captures, full outlines, outward line removal stages, and the final screenshot. The checks verify fixed masks and outline coordinates, thicker diagonal seams, zero middle movement, faster top/bottom timing, inward drawing and outward removal, absence of a logo, and exact final screenshot reconstruction. Picture pixels cannot escape their panel masks. The exit-direction check needs a contrasting image; black lines on a dark SDDM picture are verified using the diagnostic picture instead. Responsive checks verify visible borders and proportional panel placement. Discovery tests cover configuration precedence, overrides, packaged screenshots, and missing files.
 
-A stronger optional RGB probe uses a diagnostic coordinate image. It measures partial opacity, identifies the subtly shifted picture frame inside each fixed mask, and verifies the middle uses its single unshifted frame. It also checks center-out fill against a contrasting picture:
+A stronger optional RGB probe uses a diagnostic coordinate image. It measures partial opacity, identifies the subtly shifted picture frame inside each fixed mask, and verifies the middle uses its single unshifted frame. It also checks outward removal against a contrasting picture:
 
 ```bash
 mkdir -p .work
