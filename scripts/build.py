@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build fixed cockpit borders, fade-dominant picture motion, and center-out line fill."""
+"""Draw lines inward, animate masked pictures, then retract lines outward."""
 import argparse
 import hashlib
 import json
@@ -45,16 +45,20 @@ def build(audio, background=None):
         rise = times[-1]-times[-2]
         panel["frames"] = math.ceil(rise*fps)+1 if any(panel["motion"]) else 1
     assembly_time = max(panel["keys"][-1][0] for panel in panels.values())
-    fill_start = assembly_time + config["lines"]["fill_delay"]
-    fill_duration = config["lines"]["fill_duration"]
-    idle = config["lines"]["idle_opacity"]
-    fade_start = max(source_duration + config["fade_delay"], fill_start+fill_duration)
-    fade_duration = config["fade_duration"]
-    duration = fade_start+fade_duration+config["blank_hold"]
+    line_in_start = config["lines"]["entrance_start"]
+    line_in_duration = config["lines"]["entrance_duration"]
+    line_in_end = line_in_start+line_in_duration
+    line_out_start = assembly_time+config["lines"]["exit_delay"]
+    line_out_duration = config["lines"]["exit_duration"]
+    line_out_end = line_out_start+line_out_duration
+    if min(panel["keys"][-2][0] for panel in panels.values()) < line_in_end:
+        raise SystemExit("Pictures must wait until the inward line entrance finishes")
+    duration = max(source_duration,line_out_end+config["blank_hold"])
     fit = "contain" if background and background.kind == "packaged theme screenshot" else "cover"
-    setup = [f"fps = {fps};", f"assembly_time = {assembly_time};", f"fill_start = {fill_start};",
-             f"fill_duration = {fill_duration};", f"line_idle = {idle};", f"fade_start = {fade_start};",
-             f"fade_duration = {fade_duration};", f"panel_order = {json.dumps(list(panels))};"]
+    setup = [f"fps = {fps};", f"assembly_time = {assembly_time};",
+             f"line_in_start = {line_in_start};", f"line_in_duration = {line_in_duration};",
+             f"line_out_start = {line_out_start};", f"line_out_duration = {line_out_duration};",
+             f"panel_order = {json.dumps(list(panels))};"]
     for name, panel in panels.items():
         setup += [f'lighting["{name}"] = {json.dumps(panel["keys"])};',
                   f'bounds["{name}"] = {json.dumps(panel["bounds"])};',
@@ -131,12 +135,13 @@ def build(audio, background=None):
         filters.append(f"[{previous}][{full_index}:v]overlay=x=0:y=0:enable='gte(t,{assembly_time})'[joined]")
         line_index = full_index+1
         inputs += ["-loop",1,"-framerate",fps,"-i",theme / "lines.png"]
-        filters.append(f"[{line_index}:v]format=rgba,split=2[dim_src][fill_src]")
-        filters.append(f"[dim_src]colorchannelmixer=aa={idle},fade=t=out:st={fade_start}:d={fade_duration}:alpha=1[dim]")
-        p = f"clip((T-{fill_start})/{fill_duration},0,1)"
-        condition = f"lte(abs(X-W/2),W/2*({p}))*lte(abs(Y-H/2),H/2*({p}))"
-        filters.append(f"[fill_src]geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*({condition})',fade=t=out:st={fade_start}:d={fade_duration}:alpha=1[bright]")
-        filters += ["[joined][dim]overlay=0:0[outlined]", "[outlined][bright]overlay=0:0[out]"]
+        inward = f"clip((T-{line_in_start})/{line_in_duration},0,1)"
+        outward = f"clip((T-{line_out_start})/{line_out_duration},0,1)"
+        threshold = f"if(lt(T,{line_in_end}),1-({inward}),({outward}))"
+        radius = "max(abs(X-W/2)/(W/2),abs(Y-H/2)/(H/2))"
+        condition = f"gt(T,{line_in_start})*lt(T,{line_out_end})*gte({radius},{threshold})"
+        filters.append(f"[{line_index}:v]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*({condition})'[borders]")
+        filters.append("[joined][borders]overlay=0:0[out]")
         preview = BUILD / f"preview-{variant}.mp4"
         ffmpeg("-f","lavfi","-i",f"color=c={bg}:s=960x540:r={fps}:d={duration}",*inputs,
                "-filter_complex",";".join(filters),"-map","[out]","-an","-t",duration,
@@ -145,12 +150,12 @@ def build(audio, background=None):
             ffmpeg("-i",preview,"-i",ROOT/"machine-noise.m4a","-i",ROOT/"marauder-corps.m4a","-i",ROOT/"the-line.m4a",
                    "-filter_complex","[1:a]volume=0.6[a];[2:a]adelay=300:all=1[b];[3:a]adelay=2600:all=1[c];[a][b][c]amix=inputs=3:normalize=0,alimiter=limit=0.9[mix]",
                    "-map","0:v","-map","[mix]","-c:v","copy","-c:a","aac","-t",duration,BUILD/f"preview-{variant}-audio.mp4")
-        print(f"Built {name}: fixed thick lines, fade-dominant pictures, center-out line fill")
+        print(f"Built {name}: inward line entrance, picture slide/fade, outward line exit")
     manifest = {"source":config["source"],"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
                 "source_duration":source_duration,"source_frames":metadata["streams"][0].get("nb_frames"),"fps":fps,
-                "panels":panels,"mode":"fixed-outlines-fade-textures","assembly_time":assembly_time,
-                "lines":{**config["lines"],"fill_start":fill_start},"fade_start_seconds":fade_start,
-                "fade_end_seconds":fade_start+fade_duration,"preview_duration":duration,"artwork":config["artwork"],
+                "panels":panels,"mode":"inward-pictures-outward","assembly_time":assembly_time,
+                "lines":{**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
+                "preview_duration":duration,"artwork":config["artwork"],
                 "background":({"path":str(background.path),"theme":background.theme,"kind":background.kind,"fit":fit} if background else None)}
     (BUILD/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
 
