@@ -58,6 +58,9 @@ parser.add_argument("--check-texture-motion",action="store_true",help="fit fadin
 args=parser.parse_args()
 manifest=json.loads((ROOT/"build/manifest.json").read_text())
 assert manifest["mode"] == "inward-pictures-outward"
+assert manifest["lines"]["animation"] == "segment-endpoints"
+if manifest["background"]:
+    assert manifest["background"]["fit"] == "cover", "Picture leaves padding outside the panels"
 panels=manifest["panels"]
 assert set(panels)=={"top","left","middle","right","bottom"}
 assert panels["middle"]["motion"]==[0,0] and panels["middle"]["frames"]==1
@@ -70,6 +73,9 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
     prefix=ROOT/f"build/plymouth-{variant}"
     bg,fg=(0,255) if variant=="black" else (255,0)
     photo=pixels(theme/"assembled.png")
+    if manifest["background"] and manifest["background"]["kind"] == "packaged theme screenshot":
+        assert photo == pixels(ROOT/"build/themes/titanfall-black/assembled.png"), "Palette-colored side padding remains in SDDM picture"
+
     line=pixels(theme/"lines.png","rgba")
     ink=line[3::4]
     assert not any(ink[x] or ink[(H-1)*W+x] for x in range(10,W-10) if abs(x-332)>5 and abs(x-626)>5), "Outer horizontal border remains"
@@ -101,27 +107,41 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
                         assert max(abs(face[local+c]-photo[source+c]) for c in range(3))<=1, f"{part}: settled picture does not match screenshot"
         if args.check_texture_motion:
             probe_picture(part,pixels(str(prefix)+f"-phase-{part}.png"),theme,panel,ink,bg)
-    def distance(point):
-        x,y=point%W,point//W
-        return max(abs(x-W/2)/(W/2),abs(y-H/2)/(H/2))
     entrance=[]
     for label in ("entrance-early","entrance-late","lines-ready"):
         frame=pixels(str(prefix)+f"-{label}.png")
         changed={point for point in range(W*H) if abs(frame[point*3]-bg)>20}
         assert changed and all(ink[point] for point in changed), "Picture appears during line entrance or outlines move"
         entrance.append(changed)
-    assert entrance[0] <= entrance[1] <= entrance[2], "Entrance does not draw inward"
-    assert min(map(distance,entrance[0])) > min(map(distance,entrance[1]))+0.15
-    assert min(map(distance,entrance[1])) > min(map(distance,entrance[2]))+0.05
+    # Rasterized diagonal endpoints can differ by a few antialias pixels.
+    assert all(len(a-b)<=8 for a,b in zip(entrance,entrance[1:])), "Entrance does not draw inward"
+    # Probe each horizontal seam along its own length, rather than using
+    # distance from the screen center (which allowed a top-down wipe).
+    horizontal = [(215,743,140),(332,626,469)]
+    for left,right,y in horizontal:
+        early=[x for x in range(left+8,right-8) if y*W+x in entrance[0]]
+        late=[x for x in range(left+8,right-8) if y*W+x in entrance[1]]
+        midpoint=(left+right)/2
+        assert early and late and len(early)<len(late)<right-left-16, "Horizontal seam popped in as a whole row"
+        assert any(x<midpoint for x in early) and any(x>midpoint for x in early), "Seam does not enter from both endpoints"
+        assert all(abs(x-midpoint)>(right-left)*0.22 for x in early), "Horizontal entrance starts at its center"
+        assert y*W+int(midpoint) not in entrance[1], "Horizontal seam center appeared too soon"
     stages=[pixels(str(prefix)+f"-{label}.png") for label in ("closed","exit-early","exit-late")]
     strengths=[line_strength(frame,photo,ink,fg) for frame in stages]
     bright=[{point for point,value in stage.items() if value>0.85} for stage in strengths]
-    assert bright[2] <= bright[1] <= bright[0], "Exit does not retract outward"
+    assert len(bright[2]-bright[1])<=8 and len(bright[1]-bright[0])<=8, "Exit does not retract outward"
     assert len(bright[0])>=len(strengths[0])*0.98, "Pictures completed without full outlines"
-    if sum(distance(point)<0.45 for point in strengths[0])>=100:
-        assert min(map(distance,bright[2])) > min(map(distance,bright[1]))+0.2, "Exit does not erase from center to edges"
-    else:
-        print(f"  {variant}: exit center needs a contrasting diagnostic image")
+    for left,right,y in horizontal:
+        midpoint=(left+right)/2
+        measurable=[x for x in range(left+8,right-8) if y*W+x in strengths[0]]
+        if len(measurable) < (right-left)*0.8:
+            print(f"  {variant}: horizontal exit at y={y} needs a contrasting diagnostic image")
+            continue
+        early=[x for x in measurable if y*W+x in bright[1]]
+        late=[x for x in measurable if y*W+x in bright[2]]
+        assert early and late and len(late)<len(early), "Horizontal exit does not shorten along the seam"
+        assert min(abs(x-midpoint) for x in late)>min(abs(x-midpoint) for x in early)+(right-left)*0.1, "Horizontal exit is not center-out"
+        assert y*W+int(midpoint) not in bright[1], "Horizontal seam center has not retracted"
     for frame in stages:
         changed=[point for point in range(W*H) if max(abs(frame[point*3+c]-photo[point*3+c]) for c in range(3))>3]
         assert changed and all(ink[point] for point in changed), "Outline geometry moved"
