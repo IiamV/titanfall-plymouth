@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check native 4:3 and ultrawide screenshots for full layout and square emblems."""
+"""Check native 4:3 and ultrawide screenshots for full layout without a logo."""
 from pathlib import Path
 import subprocess
 
@@ -33,19 +33,9 @@ for width, height in [(1024, 768), (1280, 540)]:
     _, seam = max(rows, key=lambda row: len(row[1]))
     assert len(seam) > (629-330) * width/960 * 0.9, "The bottom seam is missing"
     assert abs(min(seam) - 330*width/960) <= 3 and abs(max(seam) - 629*width/960) <= 3, "The panel layout was cropped instead of resized"
-    center_x, center_y = width / 2, 234 * height / 540
-    radius = int(80 * min(width/960, height/540))
-    colored = []
-    for y in range(max(0, int(center_y)-radius), min(height, int(center_y)+radius)):
-        for x in range(max(0, int(center_x)-radius), min(width, int(center_x)+radius)):
-            i = (y * width + x) * 3
-            rgb = data[i:i+3]
-            if max(rgb)-min(rgb) > 24 and max(abs(rgb[c]-baseline[i+c]) for c in range(3)) > 8:
-                colored.append((x, y))
-    assert colored, "The emblem was lost during resizing"
-    left, right = min(x for x, _ in colored), max(x for x, _ in colored)
-    top, bottom = min(y for _, y in colored), max(y for _, y in colored)
-    assert abs((left+right)/2-center_x) <= 3 and abs((top+bottom)/2-center_y) <= 3
-    assert abs((right-left)-(bottom-top)) <= 3, "The emblem was stretched"
+    for y in range(int(145*height/540), int(320*height/540)):
+        start = (y * width + int(390*width/960)) * 3
+        end = (y * width + int(570*width/960)) * 3
+        assert data[start:end] == baseline[start:end], "A logo remains in the main panel"
     assert image("-screenshot.png") == baseline, "The background changed after the fade"
-    print(f"{width}x{height}: uncropped panel borders, centered square emblem, preserved background")
+    print(f"{width}x{height}: uncropped panel borders, no logo, preserved background")

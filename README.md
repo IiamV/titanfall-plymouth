@@ -1,6 +1,6 @@
 # Titanfall Pilot Link for Plymouth
 
-A cockpit-panel light-up sequence with sliding light reveals using image-generated artwork based on stills from the complete local `closing-pilot.mp4` reference. Four adjoining panel faces cover the full screen: left, right, a large central/top panel, and a narrow centered bottom panel. The emblem stays in the center of the large central/top panel. The light reveals sweep inward from the sides, down the main panel, and up the bottom panel. The artwork stays registered in place; all outlines and the emblem fade together at the end.
+A cockpit-panel light-up sequence with sliding light reveals using image-generated artwork based on stills from the complete local `closing-pilot.mp4` reference. Four adjoining panel faces cover the full screen: left, right, a large central/top panel, and a narrow centered bottom panel. The light reveals sweep inward from the sides, down the main panel, and up the bottom panel. The artwork stays registered in place; all outlines fade together at the end.
 
 - `titanfall-white`: white panel faces, black outlines.
 - `titanfall-black`: black panel faces, white outlines.
@@ -9,7 +9,7 @@ The selected artwork preserves the restored image's bottom-panel height and narr
 
 The built-in image generator produced [the artwork](theme/panels/generated-panels-v2.png); [the selected prompt and reference details](theme/panels/generation-prompt-v2.txt) are saved alongside it. The build converts its monochrome outlines into per-panel alpha layers, removing faint paper grain during palette conversion. It does not edge-detect gameplay textures or add panel translation.
 
-Illumination timings are recorded in `theme/lighting.json`. The build retains the full local reference duration (about 5.44 seconds), adds a 0.15-second hold, then fades all outlines and the emblem over 0.8 seconds. Original media is never trimmed or overwritten.
+Illumination timings are recorded in `theme/lighting.json`. The build retains the full local reference duration (about 5.44 seconds), adds a 0.15-second hold, then fades all outlines over 0.8 seconds. Original media is never trimmed or overwritten.
 
 ## Build and review before installing
 
@@ -21,7 +21,7 @@ ffplay -autoexit build/preview-white.mp4
 ffplay -autoexit build/preview-black.mp4
 ```
 
-The native Plymouth theme and desktop previews use the same fixed layout and illumination keyframes. The emblem is revealed by the same sliding light front as the large central/top panel and remains anchored at its center.
+The native Plymouth theme and desktop previews use the same fixed layout and illumination keyframes. The logo is omitted from the current build; the supplied original logo file remains unchanged.
 
 Optional desktop previews with the supplied sound clips:
 
@@ -34,7 +34,7 @@ The custom desktop audio mix starts machine noise at 0 seconds, Marauder speech 
 
 ## Responsive layout and transparent backgrounds
 
-Panel coordinates now fit the actual screen width and height independently, rather than cropping a fixed 16:9 layout. The emblem keeps its square aspect ratio. The layout recalculates when Plymouth reports a new viewport size. Native 4:3 and ultrawide renders are checked separately.
+Panel coordinates now fit the actual screen width and height independently, rather than cropping a fixed 16:9 layout. The layout recalculates when Plymouth reports a new viewport size. Native 4:3 and ultrawide renders are checked separately.
 
 The panel PNGs contain transparent faces with visible outlines. Plymouth runs before the graphical login session, so transparency cannot reveal a live SDDM window or desktop underneath it. Instead, this project can copy the same wallpaper or a packaged SDDM screenshot into the Plymouth theme and show it behind the transparent outlines. See the [official Plymouth description](https://wiki.freedesktop.org/www/Software/Plymouth/) for its early-boot role.
 
@@ -68,7 +68,7 @@ Use a custom desktop wallpaper instead:
 python3 scripts/build.py --audio --background /absolute/path/to/wallpaper.jpg
 ```
 
-Choose the black variant (white lines) for dark images, or the white variant (black lines) for light images. The selected image is copied into generated theme assets and remains visible after the outlines and emblem fade. It is a build-time snapshot: repeat the build and the installation/initramfs commands after changing the wallpaper. These options do not modify SDDM or desktop settings.
+Choose the black variant (white lines) for dark images, or the white variant (black lines) for light images. The selected image is copied into generated theme assets and remains visible after the outlines fade. It is a build-time snapshot: repeat the build and the installation/initramfs commands after changing the wallpaper. These options do not modify SDDM or desktop settings.
 
 ## Test actual Plymouth without installing
 
@@ -92,7 +92,7 @@ bash scripts/preview-plymouth.sh --headless black 8
 python3 scripts/check-previews.py
 ```
 
-The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom illumination, a `closed.png` image once all panels are lit, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm full panel coverage, matching middle/bottom widths, a spatial sliding reveal rather than uniform fading, fixed outline coordinates, a centered emblem, and restoration of the original background after the final fade. Logs are overwritten by each run.
+The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom illumination, a `closed.png` image once all panels are lit, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm full panel coverage, matching middle/bottom widths, a spatial sliding reveal rather than uniform fading, fixed outline coordinates, no logo, and restoration of the original background after the final fade. Logs are overwritten by each run.
 
 For the dark SDDM screenshot and responsive layout checks:
 
@@ -106,7 +106,7 @@ python3 scripts/check-layouts.py
 python3 scripts/test-sddm-background.py
 ```
 
-Non-default resolutions add the dimensions to screenshot filenames. The checks verify visible viewport borders, proportional middle/bottom placement, a centered square emblem, and an unchanged background after the final fade. Image-discovery tests cover configuration precedence, theme overrides, packaged screenshots, and missing files.
+Non-default resolutions add the dimensions to screenshot filenames. The checks verify visible viewport borders, proportional middle/bottom placement, no logo, and an unchanged background after the final fade. Image-discovery tests cover configuration precedence, theme overrides, packaged screenshots, and missing files.
 
 Optional authentication rendering check:
 

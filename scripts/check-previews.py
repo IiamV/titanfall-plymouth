@@ -21,22 +21,6 @@ def active(data, baseline):
             if max(abs(data[i+c] - baseline[i+c]) for c in range(3)) > 8}
 
 
-def emblem(data, baseline):
-    colored = set()
-    for y in range(145, 320):
-        for x in range(390, 570):
-            i = (y * WIDTH + x) * 3
-            rgb = data[i:i+3]
-            if max(rgb) - min(rgb) > 24 and any(abs(data[i+c] - baseline[i+c]) > 8 for c in range(3)):
-                colored.add((x, y))
-    assert colored, "The central/top-panel emblem is missing"
-    center_x = (min(x for x, _ in colored) + max(x for x, _ in colored)) / 2
-    center_y = (min(y for _, y in colored) + max(y for _, y in colored)) / 2
-    assert abs(center_x - 480) <= 3 and abs(center_y - 234) <= 3, (
-        f"Emblem is not centered on the main/top panel: {center_x}, {center_y}")
-    return colored
-
-
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--variant", choices=["white", "black"], help="check one palette, useful when matching image contrast")
 args = parser.parse_args()
@@ -68,10 +52,10 @@ for variant in ([args.variant] if args.variant else ["white", "black"]):
             full_strength = sum(max(abs(phase[i+c] - closed[i+c]) for c in range(3)) <= 2
                                 for i in own_lit)
             assert full_strength / len(own_lit) > 0.8, "Light-up is a uniform opacity fade instead of a sliding reveal"
-        if part == "top":
-            assert emblem(phase, baseline) == emblem(closed, baseline), f"{variant}: emblem position changed"
-    for x, y in emblem(closed, baseline):
-        assert masks["top"][(y * WIDTH + x) * 3], "Emblem falls outside the main/top panel"
+    for y in range(145, 320):
+        start, end = (y * WIDTH + 390) * 3, (y * WIDTH + 570) * 3
+        assert closed[start:end] == baseline[start:end], "A logo is still drawn in the main panel"
+    assert not (ROOT / f"build/themes/titanfall-{variant}/marauder-logo.png").exists()
     if manifest.get("background"):
         candidates = []
         for i in range(0, len(baseline), 3):
@@ -84,4 +68,4 @@ for variant in ([args.variant] if args.variant else ["white", "black"]):
             assert preserved / len(candidates) > 0.75, "Panel faces are obscuring the background"
     final = pixels(ROOT / f"build/plymouth-{variant}-screenshot.png")
     assert final == baseline, f"{variant}: background is not restored after the final fade"
-    print(f"{variant}: full coverage, matching bottom width, sliding reveal, fixed emblem, final fade verified")
+    print(f"{variant}: full coverage, matching bottom width, sliding reveal, no logo, final fade verified")
