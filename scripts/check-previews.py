@@ -64,6 +64,10 @@ if manifest["background"]:
 panels=manifest["panels"]
 assert set(panels)=={"top","left","middle","right","bottom"}
 assert panels["middle"]["motion"]==[0,0] and panels["middle"]["frames"]==1
+light_order = ["left","middle","right","top","bottom"]
+assert sorted(panels,key=lambda name:panels[name]["keys"][-2][0]) == light_order, "Pictures do not light left-to-right, then top-to-bottom"
+assert panels["right"]["keys"][-1][0] <= panels["top"]["keys"][-2][0], "Top lights before the left-to-right sweep finishes"
+assert panels["top"]["keys"][-1][0] <= panels["bottom"]["keys"][-2][0], "Bottom lights before the top finishes"
 for part in ("top","bottom"):
     assert panels[part]["keys"][-1][0]-panels[part]["keys"][-2][0] < 0.3, "Top/bottom animation is not faster"
 assert manifest["lines"]["exit_start"] >= manifest["assembly_time"]
