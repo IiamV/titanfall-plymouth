@@ -1,84 +1,63 @@
-# Palette constants are substituted by scripts/build.py.
+# Generated configuration and palette.
 @MOTION_SETUP@
 Window.SetBackgroundTopColor(@BG@, @BG@, @BG@);
 Window.SetBackgroundBottomColor(@BG@, @BG@, @BG@);
-width = Window.GetWidth();
-height = Window.GetHeight();
-# Stretch panel coordinates to the viewport.
-scale_x = width / 960;
-scale_y = height / 540;
+width = Window.GetWidth(); height = Window.GetHeight();
+scale_x = width / 960; scale_y = height / 540;
 origin_x = Window.GetX(); origin_y = Window.GetY();
 window_x = origin_x; window_y = origin_y;
-left_original = Image("left.png"); right_original = Image("right.png");
-bottom_original = Image("bottom.png"); top_original = Image("top.png");
 assembled_original = Image("assembled.png");
-assembled_sprite = Sprite(); assembled_sprite.SetZ(-100); assembled_sprite.SetOpacity(0);
-left_face_original = Image("face-left.png"); right_face_original = Image("face-right.png");
-bottom_face_original = Image("face-bottom.png"); top_face_original = Image("face-top.png");
-left = Sprite(); right = Sprite(); bottom = Sprite(); top = Sprite();
-left_face = Sprite(); right_face = Sprite(); bottom_face = Sprite(); top_face = Sprite();
+assembled_sprite = Sprite(); assembled_sprite.SetOpacity(0);
+lines_original = Image("lines.png");
+lines_dim = Sprite(); lines_bright = Sprite();
+for (load_index = 0; panel_order[load_index]; load_index++)
+{
+    surfaces[panel_order[load_index]].sprite = Sprite();
+    surfaces[panel_order[load_index]].frame = -1;
+}
 fun fit_panel(image, rectangle)
 {
-    # Scale shared endpoints so adjacent panels cannot leave rounding gaps.
-    target_width = Math.Int((rectangle[0] + rectangle[2]) * scale_x) - Math.Int(rectangle[0] * scale_x);
-    target_height = Math.Int((rectangle[1] + rectangle[3]) * scale_y) - Math.Int(rectangle[1] * scale_y);
-    return image.Scale(Math.Max(1, target_width), Math.Max(1, target_height));
+    target_width = Math.Int((rectangle[0]+rectangle[2])*scale_x)-Math.Int(rectangle[0]*scale_x);
+    target_height = Math.Int((rectangle[1]+rectangle[3])*scale_y)-Math.Int(rectangle[1]*scale_y);
+    return image.Scale(Math.Max(1,target_width),Math.Max(1,target_height));
 }
 fun resize_layout()
 {
     global.width = Window.GetWidth(); global.height = Window.GetHeight();
     global.origin_x = Window.GetX(); global.origin_y = Window.GetY();
     global.window_x = origin_x; global.window_y = origin_y;
-    global.scale_x = width / 960; global.scale_y = height / 540;
-    global.left_image = fit_panel(left_original, bounds["left"]);
-    global.right_image = fit_panel(right_original, bounds["right"]);
-    global.bottom_image = fit_panel(bottom_original, bounds["bottom"]);
-    global.top_image = fit_panel(top_original, bounds["top"]);
-    global.left_face_image = fit_panel(left_face_original, bounds["left"]);
-    global.right_face_image = fit_panel(right_face_original, bounds["right"]);
-    global.bottom_face_image = fit_panel(bottom_face_original, bounds["bottom"]);
-    global.top_face_image = fit_panel(top_face_original, bounds["top"]);
-    assembled_sprite.SetImage(assembled_original.Scale(width, height));
-    assembled_sprite.SetPosition(origin_x, origin_y, -100);
+    global.scale_x = width/960; global.scale_y = height/540;
+    global.lines_image = lines_original.Scale(width,height);
+    lines_dim.SetImage(lines_image); lines_dim.SetPosition(origin_x,origin_y,20);
+    for (local.i = 0; panel_order[local.i]; local.i++)
+    {
+        local.name = panel_order[local.i];
+        if (surfaces[local.name].original)
+            surfaces[local.name].image = fit_panel(surfaces[local.name].original,bounds[local.name]);
+    }
+    assembled_sprite.SetImage(assembled_original.Scale(width,height));
+    assembled_sprite.SetPosition(origin_x,origin_y,-100);
     if (panel)
     {
-        panel.SetImage(Image("panel.png").Scale(width, Math.Max(100, height * 0.23)));
-        panel.SetPosition(origin_x, origin_y + height * 0.39, 100);
+        panel.SetImage(Image("panel.png").Scale(width,Math.Max(100,height*0.23)));
+        panel.SetPosition(origin_x,origin_y+height*0.39,100);
     }
-    if (message_sprite) message_sprite.SetPosition(origin_x + 20, origin_y + height - 45, 105);
-}
-fun slide(sprite, image, way, progress, x, y, z, opacity)
-{
-    sprite.SetOpacity(0);
-    if (progress <= 0 || opacity <= 0) return;
-    offset_x = 0; offset_y = 0;
-    if (way == "right") offset_x = -image.GetWidth() * (1 - progress);
-    if (way == "left") offset_x = image.GetWidth() * (1 - progress);
-    if (way == "down") offset_y = -image.GetHeight() * (1 - progress);
-    if (way == "up") offset_y = image.GetHeight() * (1 - progress);
-    sprite.SetImage(image);
-    sprite.SetPosition(x + Math.Int(offset_x), y + Math.Int(offset_y), z);
-    sprite.SetOpacity(opacity);
-}
-fun show_panel(face, outline, face_image, outline_image, way, progress, x, y, z, fade, complete)
-{
-    slide(face, face_image, way, progress, x, y, z, !complete);
-    slide(outline, outline_image, way, progress, x, y, z + 10, fade);
+    if (message_sprite) message_sprite.SetPosition(origin_x+20,origin_y+height-45,105);
 }
 fun sample(keys, seconds)
 {
     if (seconds <= keys[0][0]) return keys[0][1];
-    for (index = 1; keys[index]; index++)
+    for (local.index = 1; keys[local.index]; local.index++)
     {
-        if (seconds <= keys[index][0])
+        if (seconds <= keys[local.index][0])
         {
-            previous = keys[index - 1];
-            next = keys[index];
+            previous = keys[local.index - 1];
+            next = keys[local.index];
             fraction = (seconds - previous[0]) / (next[0] - previous[0]);
             return previous[1] + fraction * (next[1] - previous[1]);
         }
     }
-    return keys[index - 1][1];
+    return keys[local.index - 1][1];
 }
 # Authentication stays readable throughout the sequence and after the final fade.
 panel = Sprite(Image("panel.png").Scale(width, Math.Max(100, height * 0.23)));
@@ -131,21 +110,46 @@ fun refresh()
 {
     if (width != Window.GetWidth() || height != Window.GetHeight() ||
         window_x != Window.GetX() || window_y != Window.GetY()) resize_layout();
-    seconds = tick / fps;
-    fade = 1 - Math.Clamp((seconds - fade_start) / fade_duration, 0, 1);
-    complete = seconds >= assembly_time;
-    assembled_sprite.SetOpacity(complete);
-    show_panel(left_face, left, left_face_image, left_image, direction["left"], sample(lighting["left"], seconds),
-               origin_x + Math.Int(bounds["left"][0] * scale_x), origin_y + Math.Int(bounds["left"][1] * scale_y), 1, fade, complete);
-    show_panel(right_face, right, right_face_image, right_image, direction["right"], sample(lighting["right"], seconds),
-               origin_x + Math.Int(bounds["right"][0] * scale_x), origin_y + Math.Int(bounds["right"][1] * scale_y), 2, fade, complete);
-    show_panel(bottom_face, bottom, bottom_face_image, bottom_image, direction["bottom"], sample(lighting["bottom"], seconds),
-               origin_x + Math.Int(bounds["bottom"][0] * scale_x), origin_y + Math.Int(bounds["bottom"][1] * scale_y), 3, fade, complete);
-    show_panel(top_face, top, top_face_image, top_image, direction["top"], sample(lighting["top"], seconds),
-               origin_x + Math.Int(bounds["top"][0] * scale_x), origin_y + Math.Int(bounds["top"][1] * scale_y), 4, fade, complete);
+    local.seconds = tick/fps;
+    local.complete = local.seconds >= assembly_time;
+    assembled_sprite.SetOpacity(local.complete);
+    for (local.i = 0; panel_order[local.i]; local.i++)
+    {
+        local.name = panel_order[local.i];
+        local.entry = surfaces[local.name];
+        local.p = sample(lighting[local.name],local.seconds);
+        local.entry.sprite.SetOpacity(0);
+        if (!local.complete && local.p > 0)
+        {
+            local.frame = Math.Int(local.p*(frame_count[local.name]-1));
+            if (local.entry.frame != local.frame)
+            {
+                local.entry.original = Image("face-"+local.name+"-"+local.frame+".png");
+                local.entry.image = fit_panel(local.entry.original,bounds[local.name]);
+                local.entry.frame = local.frame;
+            }
+            local.entry.sprite.SetImage(local.entry.image);
+            local.entry.sprite.SetPosition(origin_x+Math.Int(bounds[local.name][0]*scale_x),
+                origin_y+Math.Int(bounds[local.name][1]*scale_y),1+local.i);
+            local.entry.sprite.SetOpacity(local.p*local.p*(3-2*local.p));
+        }
+    }
+    # Only the center-out clipping window changes; outline coordinates stay fixed.
+    local.fade = 1-Math.Clamp((local.seconds-fade_start)/fade_duration,0,1);
+    lines_dim.SetOpacity(line_idle*local.fade);
+    local.fill = Math.Clamp((local.seconds-fill_start)/fill_duration,0,1);
+    lines_bright.SetOpacity(0);
+    if (local.fill > 0)
+    {
+        local.w = Math.Max(1,Math.Int(width*local.fill));
+        local.h = Math.Max(1,Math.Int(height*local.fill));
+        local.x = Math.Int((width-local.w)/2); local.y = Math.Int((height-local.h)/2);
+        lines_bright.SetImage(lines_image.Crop(local.x,local.y,local.w,local.h));
+        lines_bright.SetPosition(origin_x+local.x,origin_y+local.y,21);
+        lines_bright.SetOpacity(local.fade);
+    }
     tick++;
 }
 Plymouth.SetRefreshRate(fps);
-resize_layout();
-refresh();
+resize_layout(); refresh();
 Plymouth.SetRefreshFunction(refresh);

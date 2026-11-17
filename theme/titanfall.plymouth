@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=Titanfall Pilot Link
-Description=SDDM screenshot pieces slide into cockpit panel shapes, then outlines fade
+Description=Fixed diagonal cockpit seams with fade-dominant pictures and center-out line fill
 ModuleName=script
 
 [script]
