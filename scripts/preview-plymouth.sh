@@ -60,7 +60,8 @@ if $headless; then
     unset XAUTHORITY
     sleep 1
 else
-    display_number=${DISPLAY#*:}
+    display_number=${DISPLAY:-}
+    display_number=${display_number#*:}
     display_number=${display_number%%.*}
     [[ -n ${DISPLAY:-} && -S /tmp/.X11-unix/X${display_number} ]] || {
         echo 'An X11/XWayland DISPLAY is required; use --headless for a smoke test.' >&2
@@ -78,15 +79,22 @@ for ((i=0; i<50; i++)); do
 done
 $ready || { echo 'Plymouth did not start; inspect build/plymouth-preview.log' >&2; exit 1; }
 plymouth show-splash
-sleep 0.9
-if $headless && command -v magick >/dev/null; then
-    magick import -window root "$ROOT/build/plymouth-$variant-midpoint.png"
-fi
-sleep 0.6
-if $headless && command -v magick >/dev/null; then
-    magick import -window root "$ROOT/build/plymouth-$variant-closed.png"
-fi
+capture() {
+    if $headless && command -v magick >/dev/null; then
+        magick import -window root "$ROOT/build/plymouth-$variant-$1.png"
+    fi
+}
+sleep 0.75
+capture phase-left
+sleep 0.35
+capture phase-right
+sleep 0.4
+capture phase-top
+sleep 0.4
+capture phase-bottom
 sleep 0.5
+capture closed
+sleep 0.6
 if $diagnostics; then
     plymouth display-message --text='PILOT LINK // diagnostic message'
     # Synthetic prompt: never enter a real password during this preview.
@@ -100,9 +108,9 @@ if $diagnostics; then
     # Keep the diagnostic dialog active to verify it survives the final fade.
     kill "$prompt_pid" 2>/dev/null || true
     plymouth hide-message --text='PILOT LINK // diagnostic message'
-    sleep "$((seconds - 4))"
+    sleep "$((seconds - 5))"
 else
-    sleep "$((seconds - 2))"
+    sleep "$((seconds - 3))"
 fi
 if $headless && command -v magick >/dev/null; then
     magick import -window root "$ROOT/build/plymouth-$variant-screenshot.png"
