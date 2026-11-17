@@ -82,27 +82,33 @@ def image_path(value):
 
 
 def collect_options():
-    sources=['SDDM screenshot','SDDM background','Your wallpaper','Example wallpaper','No picture — solid panels']
+    try:
+        sddm=str(find_sddm_image(preview=True).path.resolve())
+        sddm_error=None
+    except SDDMImageNotFound as error:
+        sddm=None
+        sddm_error=str(error)
+    picture=(ROOT/'docs/demo/wallpaper.svg').resolve()
+    sources=[f'SDDM — {sddm or "not found"}',f'Picture — {picture}','Custom — enter an image path']
     while True:
         source=choose('Picture (optional)',sources)
-        try:
-            if source in (0,1):
-                found=find_sddm_image(preview=source==0)
-                image=str(found.path)
-                print(f'  Found: {image}')
-                image_args=['--sddm-preview' if source==0 else '--sddm-background']
-            elif source==2:
-                image=ask('Wallpaper path',validate=image_path)
-                image_args=['--background',image]
-            elif source==3:
-                image=str(ROOT/'docs/demo/wallpaper.svg')
-                image_args=['--background',image]
-            else:
-                image=None
-                image_args=[]
-            break
-        except SDDMImageNotFound as error:
-            print(f'  {error}\n  Choose another picture source or solid panels.')
+        if source==0:
+            if not sddm:
+                print(f'  {sddm_error}\n  Choose Picture or Custom instead.')
+                continue
+            image=sddm
+        elif source==1:
+            if not picture.is_file():
+                print(f'  Image not found: {picture}\n  Choose SDDM or Custom instead.')
+                continue
+            image=str(picture)
+        else:
+            image=ask('Custom image path (Enter for no picture)',
+                      validate=lambda value:image_path(value) if value else None)
+        # Freeze the displayed image path instead of detecting another image
+        # later when the build starts.
+        image_args=['--background',image] if image else []
+        break
     palette=choose('Colors',['Black panels / white lines','White panels / black lines','Custom hex colors'])
     variant=('black','white','custom')[palette]
     color_args=[]
