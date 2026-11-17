@@ -100,7 +100,7 @@ done < <(python3 - "$ROOT/build/manifest.json" <<'PYPLAN'
 import json,sys
 m=json.load(open(sys.argv[1])); lines=m['lines']
 events=[]
-for fraction,label in [(0.25,'entrance-early'),(0.60,'entrance-late')]:
+for fraction,label in [(0.15,'entrance-early'),(0.60,'entrance-late')]:
     events.append((lines['entrance_start']+fraction*lines['entrance_duration'],label))
 events.append((lines['entrance_end']+0.03,'lines-ready'))
 for name,panel in m['panels'].items():

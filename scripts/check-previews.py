@@ -130,14 +130,18 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
     # Probe each horizontal seam along its own length, rather than using
     # distance from the screen center (which allowed a top-down wipe).
     horizontal = [(215,743,140),(332,626,469)]
+    # Neither horizontal seam starts with the outer edge strokes. The
+    # lower junction is reached first and its shorter seam completes first.
     for left,right,y in horizontal:
         early=[x for x in range(left+8,right-8) if y*W+x in entrance[0]]
         late=[x for x in range(left+8,right-8) if y*W+x in entrance[1]]
-        midpoint=(left+right)/2
-        assert early and late and len(early)<len(late)<right-left-16, "Horizontal seam popped in as a whole row"
-        assert any(x<midpoint for x in early) and any(x>midpoint for x in early), "Seam does not enter from both endpoints"
-        assert all(abs(x-midpoint)>(right-left)*0.22 for x in early), "Horizontal entrance starts at its center"
-        assert y*W+int(midpoint) not in entrance[1], "Horizontal seam center appeared too soon"
+        midpoint=(left+right)//2
+        assert not early, "Horizontal seam started before the adjoining lines arrived"
+        assert late and any(x<midpoint for x in late) and any(x>midpoint for x in late), "Seam does not enter from both junctions"
+        if y==140:
+            assert y*W+midpoint not in entrance[1] and len(late)<(right-left)*0.75, "Upper seam is not following the adjoining diagonals"
+        else:
+            assert y*W+midpoint in entrance[1] and len(late)>(right-left)*0.9, "Lower seam did not finish before the upper seam"
     stages=[pixels(str(prefix)+f"-{label}.png") for label in ("closed","exit-early","exit-late")]
     strengths=[line_strength(frame,photo,ink,fg) for frame in stages]
     bright=[{point for point,value in stage.items() if value>0.85} for stage in strengths]
@@ -151,9 +155,12 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
             continue
         early=[x for x in measurable if y*W+x in bright[1]]
         late=[x for x in measurable if y*W+x in bright[2]]
-        assert early and late and len(late)<len(early), "Horizontal exit does not shorten along the seam"
-        assert min(abs(x-midpoint) for x in late)>min(abs(x-midpoint) for x in early)+(right-left)*0.1, "Horizontal exit is not center-out"
-        assert y*W+int(midpoint) not in bright[1], "Horizontal seam center has not retracted"
+        assert not late, "Horizontal seam outlasted the adjoining line wipe"
+        assert early, "Horizontal exit completed too early"
+        if y==140:
+            assert y*W+int(midpoint) not in bright[1] and len(early)<len(measurable)*0.85, "Upper seam did not start its center-out exit first"
+        else:
+            assert y*W+int(midpoint) in bright[1] and len(early)>len(measurable)*0.95, "Lower seam started exiting with the upper seam"
     for frame in stages:
         changed=[point for point in range(W*H) if max(abs(frame[point*3+c]-photo[point*3+c]) for c in range(3))>3]
         assert changed and all(ink[point] for point in changed), "Outline geometry moved"
