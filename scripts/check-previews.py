@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify fixed outlines, clipped fade-dominant pictures, and center-out line fill."""
+"""Verify fixed outlines, clipped fade-dominant pictures, and inward line entrance and outward exit."""
 import argparse
 import json
 from pathlib import Path
@@ -57,13 +57,14 @@ parser.add_argument("--variant",choices=["black","white"])
 parser.add_argument("--check-texture-motion",action="store_true",help="fit fading and internal motion using the coordinate test picture")
 args=parser.parse_args()
 manifest=json.loads((ROOT/"build/manifest.json").read_text())
-assert manifest["mode"] == "fixed-outlines-fade-textures"
+assert manifest["mode"] == "inward-pictures-outward"
 panels=manifest["panels"]
 assert set(panels)=={"top","left","middle","right","bottom"}
 assert panels["middle"]["motion"]==[0,0] and panels["middle"]["frames"]==1
 for part in ("top","bottom"):
     assert panels[part]["keys"][-1][0]-panels[part]["keys"][-2][0] < 0.3, "Top/bottom animation is not faster"
-assert manifest["lines"]["fill_start"] >= manifest["assembly_time"]
+assert manifest["lines"]["exit_start"] >= manifest["assembly_time"]
+assert min(p["keys"][-2][0] for p in panels.values()) >= manifest["lines"]["entrance_end"]
 for variant in ([args.variant] if args.variant else ["black","white"]):
     theme=ROOT/f"build/themes/titanfall-{variant}"
     prefix=ROOT/f"build/plymouth-{variant}"
@@ -73,7 +74,7 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
     ink=line[3::4]
     initial=pixels(str(prefix)+"-background.png")
     active=[point for point in range(W*H) if any(initial[point*3+c]!=bg for c in range(3))]
-    assert len(active)>1000 and all(ink[point] for point in active), "Initial frame contains moving borders or a picture behind the panels"
+    assert not active, "Picture or outlines visible before entrance"
     masks={part:pixels(theme/f"mask-{part}.png") for part in panels}
     assert all(any(mask[i] for mask in masks.values()) for i in range(0,W*H*3,3)), "Panel layout has a hole"
     bottom=panels["bottom"]["bounds"]
@@ -97,30 +98,30 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
                         assert max(abs(face[local+c]-photo[source+c]) for c in range(3))<=1, f"{part}: settled picture does not match screenshot"
         if args.check_texture_motion:
             probe_picture(part,pixels(str(prefix)+f"-phase-{part}.png"),theme,panel,ink,bg)
-    closed=pixels(str(prefix)+"-closed.png")
-    early=pixels(str(prefix)+"-line-early.png")
-    late=pixels(str(prefix)+"-line-late.png")
-    lit=pixels(str(prefix)+"-lit.png")
-    strengths=[line_strength(frame,photo,ink,fg) for frame in (closed,early,late,lit)]
-    median=sorted(strengths[0].values())[len(strengths[0])//2]
-    assert abs(median-manifest["lines"]["idle_opacity"])<0.025, "Lines brightened before the pictures finished"
-    bright=[{point for point,value in stage.items() if value>0.85} for stage in strengths[1:]]
-    assert bright[0]<=bright[1]<=bright[2], "Line fill does not grow outward"
     def distance(point):
         x,y=point%W,point//W
         return max(abs(x-W/2)/(W/2),abs(y-H/2)/(H/2))
-    # Black strokes on the installed dark screenshot have no measurable RGB
-    # contrast in its center. The coordinate-image probe exercises both colors.
-    central_contrast=sum(distance(point)<0.45 for point in strengths[0])
-    if central_contrast>=100:
-        assert len(bright[0])>100, "Center fill is missing"
-        early_radius=max(map(distance,bright[0])); late_radius=max(map(distance,bright[1]))
-        assert early_radius<0.65 and late_radius>early_radius+0.15, "Line fill is not centered and outward-moving"
+    entrance=[]
+    for label in ("entrance-early","entrance-late","lines-ready"):
+        frame=pixels(str(prefix)+f"-{label}.png")
+        changed={point for point in range(W*H) if abs(frame[point*3]-bg)>20}
+        assert changed and all(ink[point] for point in changed), "Picture appears during line entrance or outlines move"
+        entrance.append(changed)
+    assert entrance[0] <= entrance[1] <= entrance[2], "Entrance does not draw inward"
+    assert min(map(distance,entrance[0])) > min(map(distance,entrance[1]))+0.15
+    assert min(map(distance,entrance[1])) > min(map(distance,entrance[2]))+0.05
+    stages=[pixels(str(prefix)+f"-{label}.png") for label in ("closed","exit-early","exit-late")]
+    strengths=[line_strength(frame,photo,ink,fg) for frame in stages]
+    bright=[{point for point,value in stage.items() if value>0.85} for stage in strengths]
+    assert bright[2] <= bright[1] <= bright[0], "Exit does not retract outward"
+    assert len(bright[0])>=len(strengths[0])*0.98, "Pictures completed without full outlines"
+    if sum(distance(point)<0.45 for point in strengths[0])>=100:
+        assert min(map(distance,bright[2])) > min(map(distance,bright[1]))+0.2, "Exit does not erase from center to edges"
     else:
-        print(f"  {variant}: early center-fill RGB check needs a contrasting diagnostic image")
-    assert len(bright[2])>=len(strengths[3])*0.98, "Outlines do not fill completely"
-    changed=[point for point in range(W*H) if max(abs(lit[point*3+c]-photo[point*3+c]) for c in range(3))>3]
-    assert changed and all(ink[point] for point in changed), "Outline geometry moved"
-    assert pixels(str(prefix)+"-screenshot.png")==photo, "Final picture differs after outline fade"
+        print(f"  {variant}: exit center needs a contrasting diagnostic image")
+    for frame in stages:
+        changed=[point for point in range(W*H) if max(abs(frame[point*3+c]-photo[point*3+c]) for c in range(3))>3]
+        assert changed and all(ink[point] for point in changed), "Outline geometry moved"
+    assert pixels(str(prefix)+"-screenshot.png")==photo, "Final picture differs after outline exit"
     assert not (theme/"marauder-logo.png").exists()
-    print(f"{variant}: diagonal seams, thicker fixed lines, clipped pictures, fade-only middle, center-out fill, final screenshot verified")
+    print(f"{variant}: diagonal seams, thicker fixed lines, clipped pictures, fade-only middle, inward entrance, outward exit, final screenshot verified")

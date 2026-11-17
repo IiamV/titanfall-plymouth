@@ -93,24 +93,25 @@ wait_until() {
     python3 -c 'import sys,time; time.sleep(max(0,float(sys.argv[1])+float(sys.argv[2])-time.monotonic()))' "$preview_started" "$1"
 }
 capture background
-wait_until 0.34
-capture phase-top
-wait_until 0.72
-capture phase-left
-wait_until 1.03
-capture phase-middle
-wait_until 1.1
-capture phase-right
-wait_until 1.58
-capture phase-bottom
-wait_until 1.82
-capture closed
-wait_until 2.15
-capture line-early
-wait_until 2.55
-capture line-late
-wait_until 3.05
-capture lit
+while read -r moment label; do
+    wait_until "$moment"
+    capture "$label"
+done < <(python3 - "$ROOT/build/manifest.json" <<'PYPLAN'
+import json,sys
+m=json.load(open(sys.argv[1])); lines=m['lines']
+events=[]
+for fraction,label in [(0.25,'entrance-early'),(0.60,'entrance-late')]:
+    events.append((lines['entrance_start']+fraction*lines['entrance_duration'],label))
+events.append((lines['entrance_end']+0.03,'lines-ready'))
+for name,panel in m['panels'].items():
+    start,end=panel['keys'][-2][0],panel['keys'][-1][0]
+    events.append((start+0.45*(end-start),'phase-'+name))
+events.append((m['assembly_time']+0.05,'closed'))
+for fraction,label in [(0.25,'exit-early'),(0.75,'exit-late')]:
+    events.append((lines['exit_start']+fraction*lines['exit_duration'],label))
+for moment,label in sorted(events): print(moment,label)
+PYPLAN
+)
 if $diagnostics; then
     plymouth display-message --text='PILOT LINK // diagnostic message'
     # Synthetic prompt: never enter a real password during this preview.

@@ -15,7 +15,7 @@ for width, height in [(1024, 768), (1280, 540)]:
                                         "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1"])
     initial = image("-background.png")
     baseline = image("-screenshot.png")
-    data = image("-lit.png")
+    data = image("-closed.png")
     assert len(data) == len(baseline) == width * height * 3
     def ink(x, y):
         i = (y * width + x) * 3
@@ -45,4 +45,4 @@ for width, height in [(1024, 768), (1280, 540)]:
         assert data[start:end] == baseline[start:end], "A logo remains in the main panel"
     assert all(max(initial[i:i+3])-min(initial[i:i+3])<=4 for i in range(0,len(initial),3)), "A picture is visible behind the initial fixed outlines"
     assert baseline != initial, "The assembled SDDM image is missing"
-    print(f"{width}x{height}: uncropped panel borders, no logo, fixed faint outlines, assembled SDDM image")
+    print(f"{width}x{height}: uncropped panel borders, no logo, inward line entrance, assembled SDDM image")
