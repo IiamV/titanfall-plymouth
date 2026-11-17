@@ -7,6 +7,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import os
+import unicodedata
 import unittest
 from unittest.mock import patch
 import setup
@@ -44,6 +46,31 @@ class SetupTest(unittest.TestCase):
     def fake_privileged(self,command):
         if command[0]=='install': Path(command[-1]).mkdir(parents=True,exist_ok=True)
         if command[0]=='cp': shutil.copytree(Path(command[-2]),Path(command[-1]),dirs_exist_ok=True)
+
+    def test_long_paths_wrap_without_truncating_or_autowrapping(self):
+        options=['SDDM — /usr/share/sddm/themes/WarGames/preview.png',
+                 'Picture — /home/someone/a long project path/docs/demo/wallpaper.svg',
+                 'Custom — enter an image path']
+        for columns in (24,40,80,120):
+            rows=setup.menu_lines(options,1,columns)
+            for row in rows:
+                width=sum(0 if unicodedata.combining(c) else (2 if unicodedata.east_asian_width(c) in ('W','F') else 1) for c in row)
+                self.assertLessEqual(width,columns-1)
+            text=''.join(rows)
+            for option in options: self.assertIn(option,text)
+
+    def test_redraw_moves_up_by_wrapped_rows(self):
+        class Terminal(io.StringIO):
+            def isatty(self): return True
+            def fileno(self): return 99
+        incoming,outgoing=Terminal(),Terminal()
+        options=['SDDM — /a/very/long/path/to/the/installed/theme/preview.png',
+                 'Picture — /another/very/long/path/to/wallpaper.svg','Custom']
+        expected=len(setup.menu_lines(options,0,30))-1
+        with patch.object(setup.sys,'stdin',incoming),patch.object(setup.sys,'stdout',outgoing),patch.dict(setup.os.environ,{'TERM':'xterm'}),patch.object(setup.os,'get_terminal_size',return_value=os.terminal_size((30,24))),patch.object(setup.termios,'tcgetattr',return_value=[]),patch.object(setup.termios,'tcsetattr'),patch.object(setup.tty,'setcbreak'),patch.object(setup.os,'read',side_effect=[b'j',b'k',b'\n']):
+            self.assertEqual(setup.choose('Picture',options),0)
+        self.assertGreater(expected,len(options))
+        self.assertEqual(outgoing.getvalue().count(f'\033[{expected}A'),2)
 
     def test_numbered_menu_retries_invalid_choices(self):
         with patch.object(setup.sys,'stdin',io.StringIO()),patch('builtins.input',side_effect=['0','bad','2']):
