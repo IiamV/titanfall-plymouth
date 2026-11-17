@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Titanfall Pilot Link
+Description=Enter the cockpit, then establish the Marauder pilot link
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/titanfall
+ScriptFile=/usr/share/plymouth/themes/titanfall/titanfall.script

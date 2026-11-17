@@ -1,0 +1,106 @@
+# Generated constants are substituted by scripts/build.py.
+frame_count = @FRAME_COUNT@;
+fps = 24;
+Window.SetBackgroundTopColor(0, 0, 0);
+Window.SetBackgroundBottomColor(0, 0, 0);
+width = Window.GetWidth();
+height = Window.GetHeight();
+scale = Math.Min(width / 960, height / 540);
+video_width = Math.Int(960 * scale);
+video_height = Math.Int(540 * scale);
+video = Sprite();
+video.SetPosition(Window.GetX() + (width - video_width) / 2,
+                  Window.GetY() + (height - video_height) / 2, 0);
+logo_image = Image("marauder-logo.png");
+logo_size = Math.Int(Math.Min(width, height) * 0.30);
+logo = Sprite(logo_image.Scale(logo_size, logo_size));
+logo.SetPosition(Window.GetX() + (width - logo_size) / 2,
+                 Window.GetY() + height * 0.28, 1);
+logo.SetOpacity(0);
+label_image = Image.Text("PILOT LINK ESTABLISHED", 0.75, 0.86, 0.80, 1, "Sans 16");
+label = Sprite(label_image);
+label.SetPosition(Window.GetX() + (width - label_image.GetWidth()) / 2,
+                  Window.GetY() + height * 0.65, 2);
+label.SetOpacity(0);
+bar_width = Math.Max(1, Math.Int(width * 0.38));
+bar = Sprite();
+bar.SetPosition(Window.GetX() + (width - bar_width) / 2,
+                Window.GetY() + height * 0.91, 3);
+bar_source = Image("progress.png");
+boot_progress = 0;
+fun progress_callback(duration, progress)
+{
+    boot_progress = Math.Clamp(progress, 0, 1);
+    bar.SetImage(bar_source.Scale(Math.Max(1, Math.Int(bar_width * boot_progress)), 2));
+}
+Plymouth.SetBootProgressFunction(progress_callback);
+# Dialog panel keeps prompts readable even over bright cockpit footage.
+panel = Sprite(Image("panel.png").Scale(width, Math.Max(100, height * 0.23)));
+panel.SetPosition(Window.GetX(), Window.GetY() + height * 0.39, 100);
+panel.SetOpacity(0);
+prompt_sprite = Sprite();
+entry_sprite = Sprite();
+message_sprite = Sprite();
+message_sprite.SetPosition(Window.GetX() + 20, Window.GetY() + height - 45, 105);
+fun center_text(sprite, text, y)
+{
+    image = Image.Text(text, 0.9, 0.94, 0.92, 1, "Sans 14");
+    sprite.SetImage(image);
+    sprite.SetPosition(Window.GetX() + (width - image.GetWidth()) / 2,
+                       Window.GetY() + height * y, 101);
+}
+fun display_normal()
+{
+    panel.SetOpacity(0);
+    prompt_sprite.SetOpacity(0);
+    entry_sprite.SetOpacity(0);
+}
+fun display_prompt(prompt, answer)
+{
+    panel.SetOpacity(1);
+    center_text(prompt_sprite, prompt, 0.43);
+    center_text(entry_sprite, answer, 0.51);
+    prompt_sprite.SetOpacity(1);
+    entry_sprite.SetOpacity(1);
+}
+fun display_password(prompt, bullets)
+{
+    answer = "";
+    for (i = 0; i < bullets; i++) answer += "*";
+    display_prompt(prompt, answer);
+}
+fun display_message(text)
+{
+    message_sprite.SetImage(Image.Text(text, 0.9, 0.94, 0.92, 1, "Sans 12"));
+    message_sprite.SetOpacity(1);
+}
+fun hide_message(text) { message_sprite.SetOpacity(0); }
+Plymouth.SetDisplayNormalFunction(display_normal);
+Plymouth.SetDisplayPasswordFunction(display_password);
+Plymouth.SetDisplayQuestionFunction(display_prompt);
+Plymouth.SetDisplayMessageFunction(display_message);
+Plymouth.SetHideMessageFunction(hide_message);
+tick = 0;
+last_frame = -1;
+fun refresh()
+{
+    # Stream one frame at a time instead of retaining ~260 MiB of decoded PNGs.
+    if (tick < frame_count)
+    {
+        frame = Math.Int(tick);
+        if (frame != last_frame)
+        {
+            video.SetImage(Image("frame-" + frame + ".png").Scale(video_width, video_height));
+            last_frame = frame;
+        }
+    }
+    else
+    {
+        video.SetOpacity(0);
+        logo.SetOpacity(Math.Min(1, (tick - frame_count) / fps));
+        label.SetOpacity(Math.Min(1, (tick - frame_count) / fps));
+    }
+    tick++;
+}
+Plymouth.SetRefreshRate(fps);
+Plymouth.SetRefreshFunction(refresh);
