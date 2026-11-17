@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+from sddm_background import SDDMImage, SDDMImageNotFound, find_sddm_image
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
@@ -20,7 +21,7 @@ def ffmpeg(*args):
     run("ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *args)
 
 
-def build(audio):
+def build(audio, background=None):
     for executable in ("ffmpeg", "ffprobe", "magick"):
         if not shutil.which(executable):
             raise SystemExit(f"Missing dependency: {executable}")
@@ -34,6 +35,7 @@ def build(audio):
     fade_start = source_duration + lighting["fade_delay"]
     fade_duration = lighting["fade_duration"]
     duration = fade_start + fade_duration + lighting["blank_hold"]
+    background_fit = "contain" if background and background.kind == "packaged theme screenshot" else "cover"
     panels = lighting["panels"]
     if set(panels) != {"left", "right", "top", "bottom"}:
         raise SystemExit("The lighting definition must include all four panels")
@@ -44,7 +46,7 @@ def build(audio):
     for panel in panels.values():
         xs, ys = zip(*panel["polygon"])
         panel["bounds"] = [min(xs), min(ys), max(xs)-min(xs), max(ys)-min(ys)]
-    setup = [f"fps = {fps};", f"fade_start = {fade_start};", f"fade_duration = {fade_duration};"]
+    setup = [f"background_present = {1 if background else 0};", f'background_fit = "{background_fit}";', f"fps = {fps};", f"fade_start = {fade_start};", f"fade_duration = {fade_duration};"]
     for name, panel in panels.items():
         setup.append(f'lighting["{name}"] = {json.dumps(panel["keys"])};')
         setup.append(f'bounds["{name}"] = {json.dumps(panel["bounds"])};')
@@ -74,6 +76,9 @@ def build(audio):
                    "[e][m]blend=all_mode=multiply[a];[2:v][a]alphamerge,format=rgba,"
                    f"crop={panel['bounds'][2]}:{panel['bounds'][3]}:{panel['bounds'][0]}:{panel['bounds'][1]}[out]",
                    "-map", "[out]", "-frames:v", 1, theme / f"{part}.png")
+        if background:
+            run("magick", str(background.path) + "[0]", "-background", bg,
+                "-alpha", "remove", "-alpha", "off", "PNG24:" + str(theme / "background.png"))
         run("magick", ROOT / "marauder-logo.png", "PNG32:" + str(theme / "marauder-logo.png"))
         run("magick", "-size", "16x16", f"xc:{bg}", theme / "panel.png")
         script = (ROOT / "theme/titanfall.script").read_text()
@@ -87,6 +92,14 @@ def build(audio):
         (theme / f"{name}.plymouth").write_text(descriptor)
         filters = []
         previous = "0:v"
+        if background:
+            if background_fit == "contain":
+                filters.append("[0:v]scale=960:540:force_original_aspect_ratio=decrease,"
+                               f"pad=960:540:(ow-iw)/2:(oh-ih)/2:color={bg},setsar=1[wallpaper]")
+            else:
+                filters.append("[0:v]scale=960:540:force_original_aspect_ratio=increase,"
+                               "crop=960:540,setsar=1[wallpaper]")
+            previous = "wallpaper"
         input_args = []
         # Reveal clips move across the ink; source geometry stays registered.
         for index, (part, panel) in enumerate(panels.items(), start=1):
@@ -116,8 +129,9 @@ def build(audio):
                        f'fade=t=out:st={fade_start}:d={fade_duration}:alpha=1[logo]')
         filters.append(f'[{previous}][logo]overlay=x={logo_x}:y={logo_y}:shortest=1[out]')
         preview = BUILD / f"preview-{variant}.mp4"
-        ffmpeg("-f", "lavfi", "-i", f"color=c={bg}:s=960x540:r={fps}:d={duration}",
-               *input_args, "-filter_complex", ";".join(filters), "-map", "[out]", "-an",
+        backdrop_args = (["-loop", 1, "-framerate", fps, "-i", theme / "background.png"] if background else
+                         ["-f", "lavfi", "-i", f"color=c={bg}:s=960x540:r={fps}:d={duration}"])
+        ffmpeg(*backdrop_args, *input_args, "-filter_complex", ";".join(filters), "-map", "[out]", "-an",
                "-t", duration, "-c:v", "libx264", "-crf", 16, "-pix_fmt", "yuv420p",
                "-movflags", "+faststart", preview)
         if audio:
@@ -134,11 +148,31 @@ def build(audio):
                 "fps": fps, "panels": panels, "logo": logo, "mode": "directional-light-up",
                 "artwork": lighting["artwork"], "artwork_sha256": hashlib.sha256((ROOT / lighting["artwork"]).read_bytes()).hexdigest(),
                 "fade_start_seconds": fade_start, "fade_end_seconds": fade_start + fade_duration,
-                "preview_duration": duration, "variants": ["black", "white"]}
+                "preview_duration": duration, "variants": ["black", "white"],
+                "background": ({"path": str(background.path), "theme": background.theme,
+                                "kind": background.kind, "fit": background_fit} if background else None)}
     (BUILD / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--audio", action="store_true", help="mix supplied audio for desktop previews only")
-    build(parser.parse_args().audio)
+    backgrounds = parser.add_mutually_exclusive_group()
+    backgrounds.add_argument("--background", type=Path, help="copy a custom wallpaper behind transparent panel outlines")
+    backgrounds.add_argument("--sddm-background", action="store_true", help="discover and copy the active installed SDDM theme background")
+    backgrounds.add_argument("--sddm-preview", action="store_true", help="discover and copy the active SDDM theme's packaged screenshot")
+    args = parser.parse_args()
+    background = None
+    try:
+        if args.background:
+            path = args.background.expanduser().resolve()
+            if not path.is_file():
+                parser.error(f"Background image not found: {path}")
+            background = SDDMImage(path, "", "custom wallpaper")
+        elif args.sddm_background or args.sddm_preview:
+            background = find_sddm_image(preview=args.sddm_preview)
+    except SDDMImageNotFound as error:
+        parser.error(str(error))
+    if background:
+        print(f"Using {background.kind}: {background.path}", flush=True)
+    build(args.audio, background)
