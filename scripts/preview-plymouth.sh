@@ -84,9 +84,9 @@ capture() {
         magick import -window root "$ROOT/build/plymouth-$variant-$1.png"
     fi
 }
-sleep 0.75
+sleep 0.65
 capture phase-left
-sleep 0.35
+sleep 0.45
 capture phase-right
 sleep 0.4
 capture phase-top
