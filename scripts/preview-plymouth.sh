@@ -25,8 +25,12 @@ variant=${1:-white}
 [[ $variant == black || $variant == white ]] || { echo 'Variant must be black or white' >&2; exit 1; }
 if (( $# )); then shift; fi
 seconds=${1:-12}
+resolution=${2:-960x540}
+[[ $resolution =~ ^[1-9][0-9]{1,3}x[1-9][0-9]{1,3}$ ]] || { echo 'Invalid preview resolution' >&2; exit 1; }
+capture_prefix="$ROOT/build/plymouth-$variant"
+if [[ $resolution != 960x540 ]]; then capture_prefix+="-$resolution"; fi
 [[ $seconds =~ ^[0-9]+$ ]] && (( seconds >= 8 && seconds <= 120 )) || {
-    echo 'Usage: scripts/preview-plymouth.sh [--headless] [--diagnostics] [black|white] [seconds: 8..120]' >&2; exit 1;
+    echo 'Usage: scripts/preview-plymouth.sh [--headless] [--diagnostics] [black|white] [seconds: 8..120] [WIDTHxHEIGHT]' >&2; exit 1;
 }
 mount --make-rprivate /
 # ThemeDir is supported by Plymouth; bind only a private daemon configuration.
@@ -54,7 +58,7 @@ if $headless; then
     command -v Xvfb >/dev/null || { echo 'Headless preview needs Xvfb' >&2; exit 1; }
     # Namespace has its own X11 socket directory, so display :99 cannot collide.
     mount -t tmpfs tmpfs /tmp
-    Xvfb :99 -screen 0 960x540x24 -nolisten tcp > "$ROOT/build/xvfb.log" 2>&1 &
+    Xvfb :99 -screen 0 "${resolution}x24" -nolisten tcp > "$ROOT/build/xvfb.log" 2>&1 &
     xvfb_pid=$!
     export DISPLAY=:99
     unset XAUTHORITY
@@ -81,7 +85,7 @@ $ready || { echo 'Plymouth did not start; inspect build/plymouth-preview.log' >&
 plymouth show-splash
 capture() {
     if $headless && command -v magick >/dev/null; then
-        magick import -window root "$ROOT/build/plymouth-$variant-$1.png"
+        magick import -window root "$capture_prefix-$1.png"
     fi
 }
 sleep 0.65
@@ -103,7 +107,7 @@ if $diagnostics; then
     prompt_pid=$!
     sleep 2
     if $headless && command -v magick >/dev/null; then
-        magick import -window root "$ROOT/build/plymouth-$variant-prompt.png"
+        magick import -window root "$capture_prefix-prompt.png"
     fi
     # Keep the diagnostic dialog active to verify it survives the final fade.
     kill "$prompt_pid" 2>/dev/null || true
@@ -113,7 +117,7 @@ else
     sleep "$((seconds - 3))"
 fi
 if $headless && command -v magick >/dev/null; then
-    magick import -window root "$ROOT/build/plymouth-$variant-screenshot.png"
+    magick import -window root "$capture_prefix-screenshot.png"
 fi
 plymouth quit
 wait "$daemon_pid"

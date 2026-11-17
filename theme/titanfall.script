@@ -4,18 +4,34 @@ Window.SetBackgroundTopColor(@BG@, @BG@, @BG@);
 Window.SetBackgroundBottomColor(@BG@, @BG@, @BG@);
 width = Window.GetWidth();
 height = Window.GetHeight();
-# Image coordinates stay registered while cropped reveal fronts slide inward.
-scale = Math.Max(width / 960, height / 540);
-origin_x = Window.GetX() + (width - 960 * scale) / 2;
-origin_y = Window.GetY() + (height - 540 * scale) / 2;
-left_image = Image("left.png").Scale(bounds["left"][2] * scale, bounds["left"][3] * scale);
-right_image = Image("right.png").Scale(bounds["right"][2] * scale, bounds["right"][3] * scale);
-bottom_image = Image("bottom.png").Scale(bounds["bottom"][2] * scale, bounds["bottom"][3] * scale);
-top_image = Image("top.png").Scale(bounds["top"][2] * scale, bounds["top"][3] * scale);
-left = Sprite(); right = Sprite(); bottom = Sprite(); top = Sprite();
-logo_size = Math.Int(128 * scale);
-logo_image = Image("marauder-logo.png").Scale(logo_size, logo_size);
-logo = Sprite();
+# Stretch panel coordinates to the viewport; preserve the emblem's aspect ratio.
+scale_x = width / 960;
+scale_y = height / 540;
+origin_x = Window.GetX(); origin_y = Window.GetY();
+window_x = origin_x; window_y = origin_y;
+left_original = Image("left.png"); right_original = Image("right.png");
+bottom_original = Image("bottom.png"); top_original = Image("top.png");
+logo_original = Image("marauder-logo.png");
+left = Sprite(); right = Sprite(); bottom = Sprite(); top = Sprite(); logo = Sprite();
+fun resize_layout()
+{
+    global.width = Window.GetWidth(); global.height = Window.GetHeight();
+    global.origin_x = Window.GetX(); global.origin_y = Window.GetY();
+    global.window_x = origin_x; global.window_y = origin_y;
+    global.scale_x = width / 960; global.scale_y = height / 540;
+    global.left_image = left_original.Scale(bounds["left"][2] * scale_x, bounds["left"][3] * scale_y);
+    global.right_image = right_original.Scale(bounds["right"][2] * scale_x, bounds["right"][3] * scale_y);
+    global.bottom_image = bottom_original.Scale(bounds["bottom"][2] * scale_x, bounds["bottom"][3] * scale_y);
+    global.top_image = top_original.Scale(bounds["top"][2] * scale_x, bounds["top"][3] * scale_y);
+    global.logo_size = Math.Max(1, Math.Int(128 * Math.Min(scale_x, scale_y)));
+    global.logo_image = logo_original.Scale(logo_size, logo_size);
+    if (panel)
+    {
+        panel.SetImage(Image("panel.png").Scale(width, Math.Max(100, height * 0.23)));
+        panel.SetPosition(origin_x, origin_y + height * 0.39, 100);
+    }
+    if (message_sprite) message_sprite.SetPosition(origin_x + 20, origin_y + height - 45, 105);
+}
 fun reveal(sprite, image, way, progress, x, y, z, fade)
 {
     sprite.SetOpacity(0);
@@ -102,23 +118,26 @@ Plymouth.SetHideMessageFunction(hide_message);
 tick = 0;
 fun refresh()
 {
+    if (width != Window.GetWidth() || height != Window.GetHeight() ||
+        window_x != Window.GetX() || window_y != Window.GetY()) resize_layout();
     seconds = tick / fps;
     fade = 1 - Math.Clamp((seconds - fade_start) / fade_duration, 0, 1);
     reveal(left, left_image, direction["left"], sample(lighting["left"], seconds),
-           origin_x + bounds["left"][0] * scale, origin_y + bounds["left"][1] * scale, 1, fade);
+           origin_x + bounds["left"][0] * scale_x, origin_y + bounds["left"][1] * scale_y, 1, fade);
     reveal(right, right_image, direction["right"], sample(lighting["right"], seconds),
-           origin_x + bounds["right"][0] * scale, origin_y + bounds["right"][1] * scale, 1, fade);
+           origin_x + bounds["right"][0] * scale_x, origin_y + bounds["right"][1] * scale_y, 1, fade);
     reveal(bottom, bottom_image, direction["bottom"], sample(lighting["bottom"], seconds),
-           origin_x + bounds["bottom"][0] * scale, origin_y + bounds["bottom"][1] * scale, 2, fade);
+           origin_x + bounds["bottom"][0] * scale_x, origin_y + bounds["bottom"][1] * scale_y, 2, fade);
     reveal(top, top_image, direction["top"], sample(lighting["top"], seconds),
-           origin_x + bounds["top"][0] * scale, origin_y + bounds["top"][1] * scale, 3, fade);
+           origin_x + bounds["top"][0] * scale_x, origin_y + bounds["top"][1] * scale_y, 3, fade);
     # Reveal the fixed emblem with the same scan front crossing the main panel.
-    front = bounds["top"][3] * sample(lighting["top"], seconds);
-    logo_progress = Math.Clamp((front - (234 - 128 / 2 - bounds["top"][1])) / 128, 0, 1);
+    front = bounds["top"][3] * scale_y * sample(lighting["top"], seconds);
+    logo_progress = Math.Clamp((front - ((234 - bounds["top"][1]) * scale_y - logo_size / 2)) / logo_size, 0, 1);
     reveal(logo, logo_image, "down", logo_progress,
-           origin_x + (480 - 128 / 2) * scale, origin_y + (234 - 128 / 2) * scale, 4, fade);
+           origin_x + 480 * scale_x - logo_size / 2, origin_y + 234 * scale_y - logo_size / 2, 4, fade);
     tick++;
 }
 Plymouth.SetRefreshRate(fps);
+resize_layout();
 refresh();
 Plymouth.SetRefreshFunction(refresh);
