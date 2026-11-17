@@ -12,22 +12,34 @@ if [[ ${1:-} != --inside ]]; then
 fi
 shift
 headless=false
-if [[ ${1:-} == --headless ]]; then headless=true; shift; fi
+diagnostics=false
+while [[ ${1:-} == --* ]]; do
+    case $1 in
+        --headless) headless=true ;;
+        --diagnostics) diagnostics=true ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+    esac
+    shift
+done
+variant=${1:-white}
+[[ $variant == black || $variant == white ]] || { echo 'Variant must be black or white' >&2; exit 1; }
+if (( $# )); then shift; fi
 seconds=${1:-12}
 [[ $seconds =~ ^[0-9]+$ ]] && (( seconds >= 8 && seconds <= 120 )) || {
-    echo 'Usage: scripts/preview-plymouth.sh [--headless] [seconds: 8..120]' >&2; exit 1;
+    echo 'Usage: scripts/preview-plymouth.sh [--headless] [--diagnostics] [black|white] [seconds: 8..120]' >&2; exit 1;
 }
 mount --make-rprivate /
 # ThemeDir is supported by Plymouth; bind only a private daemon configuration.
 config=$(mktemp "$ROOT/build/preview-config.XXXXXX")
 cat > "$config" <<CONFIG
 [Daemon]
-Theme=titanfall
+Theme=titanfall-$variant
 ThemeDir=$ROOT/build/themes
 ShowDelay=0
 DeviceTimeout=1
 CONFIG
 mount --bind "$config" /etc/plymouth/plymouthd.conf
+mount --bind "$ROOT/build/themes" /usr/share/plymouth/themes
 mount -t tmpfs tmpfs /run/plymouth
 xvfb_pid=
 daemon_pid=
@@ -48,7 +60,9 @@ if $headless; then
     unset XAUTHORITY
     sleep 1
 else
-    [[ -n ${DISPLAY:-} && -S /tmp/.X11-unix/X${DISPLAY#*:} ]] || {
+    display_number=${DISPLAY#*:}
+    display_number=${display_number%%.*}
+    [[ -n ${DISPLAY:-} && -S /tmp/.X11-unix/X${display_number} ]] || {
         echo 'An X11/XWayland DISPLAY is required; use --headless for a smoke test.' >&2
         exit 1
     }
@@ -65,24 +79,33 @@ done
 $ready || { echo 'Plymouth did not start; inspect build/plymouth-preview.log' >&2; exit 1; }
 plymouth show-splash
 sleep 2
-plymouth display-message --text='PILOT LINK // diagnostic message'
-# Exercise password and question rendering without accepting real credentials.
-plymouth ask-for-password --prompt='TEST ONLY: unlock simulation' \
-    --command=/usr/bin/true --dont-pause-progress > /dev/null 2>&1 &
-prompt_pid=$!
-sleep 2
-kill "$prompt_pid" 2>/dev/null || true
-# Hide the synthetic dialog by reloading the same private theme.
-plymouth reload
-plymouth hide-message --text='PILOT LINK // diagnostic message'
-sleep "$((seconds - 4))"
 if $headless && command -v magick >/dev/null; then
-    magick import -window root "$ROOT/build/plymouth-screenshot.png"
+    magick import -window root "$ROOT/build/plymouth-$variant-midpoint.png"
+fi
+if $diagnostics; then
+    plymouth display-message --text='PILOT LINK // diagnostic message'
+    # Synthetic prompt: never enter a real password during this preview.
+    plymouth ask-for-password --prompt='TEST ONLY: unlock simulation' \
+        --command=/usr/bin/true --dont-pause-progress > /dev/null 2>&1 &
+    prompt_pid=$!
+    sleep 2
+    if $headless && command -v magick >/dev/null; then
+        magick import -window root "$ROOT/build/plymouth-$variant-prompt.png"
+    fi
+    kill "$prompt_pid" 2>/dev/null || true
+    plymouth reload
+    plymouth hide-message --text='PILOT LINK // diagnostic message'
+    sleep "$((seconds - 4))"
+else
+    sleep "$((seconds - 2))"
+fi
+if $headless && command -v magick >/dev/null; then
+    magick import -window root "$ROOT/build/plymouth-$variant-screenshot.png"
 fi
 plymouth quit
 wait "$daemon_pid"
 daemon_pid=
-if rg -i 'parser error|parse error|syntax error|could not parse|failed to (load|execute).*script' \
+if rg -i 'parser error|parse error|syntax error|execution error|could not parse|failed to (load|execute).*script' \
     "$ROOT/build/plymouth-preview.log"; then
     echo 'Plymouth script error; inspect the log.' >&2; exit 1
 fi
