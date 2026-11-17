@@ -78,10 +78,15 @@ for ((i=0; i<50; i++)); do
 done
 $ready || { echo 'Plymouth did not start; inspect build/plymouth-preview.log' >&2; exit 1; }
 plymouth show-splash
-sleep 2
+sleep 0.9
 if $headless && command -v magick >/dev/null; then
     magick import -window root "$ROOT/build/plymouth-$variant-midpoint.png"
 fi
+sleep 0.6
+if $headless && command -v magick >/dev/null; then
+    magick import -window root "$ROOT/build/plymouth-$variant-closed.png"
+fi
+sleep 0.5
 if $diagnostics; then
     plymouth display-message --text='PILOT LINK // diagnostic message'
     # Synthetic prompt: never enter a real password during this preview.
