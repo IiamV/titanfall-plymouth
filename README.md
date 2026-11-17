@@ -1,10 +1,16 @@
 # Titanfall SDDM panel assembly for Plymouth
 
-The selected SDDM screenshot or wallpaper is cut into four cockpit-shaped image pieces. Those textured pieces slide into place in the staggered order of the light-up sequence in the complete local `closing-pilot.mp4`. The image pixels move with each piece: the full screenshot is not displayed behind arriving panels. No logo is drawn.
+Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into an expanded top header, left and right sides, a middle panel, and the narrow bottom panel. Side-to-top seams are continuous diagonals; the middle-to-top seam stays horizontal. No logo is drawn.
 
-The left and right pieces extend to the screen bottom. The bottom piece has the same width as the middle panel's lower edge. Black and white variants control the empty-screen color and contrasting outlines; the screenshot keeps its original colors.
+- The thicker outlines stay in place. They start faint, then fill brightly from the center outward after all pictures finish appearing.
+- The middle picture only fades in, with zero movement.
+- Other pictures mostly fade, with small movement **inside their fixed masks**: 12 pixels on the sides, 8 on top, 5 on the bottom at the reference resolution.
+- Top and bottom finish in 0.22 and 0.20 seconds; side fades take 0.55 seconds and the middle fade takes 0.70 seconds.
+- Picture assembly finishes at 1.70 seconds. Center-out line fill runs from 1.85 to 2.75 seconds.
 
-Once all pieces meet, their complete image replaces the individual face sprites to avoid alpha-edge rounding seams. This completed-image layer is hidden until assembly finishes. The outlines fade together after the full reference duration; the assembled screenshot remains for the login-screen handoff. A packaged screenshot is static and has no interactive login controls.
+The header is enlarged by shortening the middle and side panels. The bottom width matches the middle panel's lower stem. Black and white variants control the empty-screen and outline colors; the screenshot keeps its colors. For the installed dark WarGames picture, use the black variant with white outlines.
+
+The full screenshot is hidden until the individual pictures finish appearing. It then replaces their face layers to avoid alpha-edge rounding seams. The fixed outlines fade together after the full reference runtime; the completed screenshot remains for the login-screen handoff. A packaged SDDM screenshot is static, with noninteractive example controls.
 
 ## Build and review before installation
 
@@ -12,8 +18,8 @@ Dependencies: Python 3, FFmpeg, ImageMagick, and Plymouth with its script plugin
 
 ```bash
 python3 scripts/build.py --audio --sddm-preview
-ffplay -autoexit build/preview-black.mp4
-ffplay -autoexit build/preview-white.mp4
+ffplay -autoexit build/preview-black-audio.mp4
+ffplay -autoexit build/preview-white-audio.mp4
 ```
 
 The build uses the active installed SDDM theme's packaged screenshot. On the inspected machine this is `/usr/share/sddm/themes/WarGames/preview.png`. Its configured `Background.png` is plain black, so the packaged preview makes image-piece motion easier to see.
@@ -25,7 +31,7 @@ python3 scripts/build.py --audio --sddm-background
 python3 scripts/build.py --audio --background /absolute/path/to/wallpaper.jpg
 ```
 
-Without an image option, panel faces use the selected solid palette. Optional sound mixes are saved as `build/preview-black-audio.mp4` and `build/preview-white-audio.mp4`; Plymouth itself is silent.
+Without an image option, panel faces use the selected solid palette. `--audio` creates sound mixes in `preview-black-audio.mp4` and `preview-white-audio.mp4`. The plain `preview-black.mp4` and `preview-white.mp4` files are silent. Plymouth boot audio has not been implemented; no boot-audio service is installed.
 
 Find installed SDDM images without building:
 
@@ -38,7 +44,7 @@ Discovery reads standard SDDM configuration locations, respects theme directorie
 
 ## Layout and timing
 
-The [generated panel artwork](theme/panels/generated-panels-v2.png) and [its prompt](theme/panels/generation-prompt-v2.txt) define the silhouettes. `theme/lighting.json` records panel masks, slide directions, and arrival times. The entire 5.44-second local video remains the timing reference; original media is never trimmed or overwritten.
+The [generated panel artwork](theme/panels/generated-panels-v3.png) and [its prompt](theme/panels/generation-prompt-v3.txt) define the silhouettes. `theme/lighting.json` records the five masks, small internal picture offsets, fade times, and center-out line-fill timing. The entire 5.44-second local video remains the timing reference; original media is never trimmed or overwritten.
 
 The snapshot is fitted to the 960×540 assembly canvas before cutting: packaged SDDM screenshots are contained without cropping, while wallpapers cover the canvas. The complete canvas and all panel coordinates resize with the screen. The responsive layout is checked at 4:3 and ultrawide sizes.
 
@@ -67,9 +73,9 @@ python3 scripts/check-layouts.py
 python3 scripts/test-sddm-background.py
 ```
 
-`build/` stores the blank initial frame, individual mid-slide captures, the assembled frame, and the final frame after outlines fade. The checks verify that each face PNG contains the correct screenshot pixels under its polygon mask, no complete image is visible initially, the bottom width matches the center, no logo is drawn, and the final frame exactly reconstructs the fitted screenshot. Responsive checks verify visible borders and proportional panel placement. Discovery tests cover configuration precedence, overrides, packaged screenshots, and missing files.
+`build/` stores the initial fixed faint outlines, partial-picture captures, pre-fill and center-out fill stages, the fully lit frame, and the final screenshot after outlines fade. The checks verify fixed masks and outline coordinates, thicker diagonal seams, zero middle movement, faster top/bottom timing, center-out line fill, absence of a logo, and exact final screenshot reconstruction. Picture pixels cannot escape their panel masks. The early-fill check needs a contrasting image; black lines on a dark SDDM picture are verified using the diagnostic picture instead. Responsive checks verify visible borders and proportional panel placement. Discovery tests cover configuration precedence, overrides, packaged screenshots, and missing files.
 
-A stronger optional RGB-motion probe uses a diagnostic coordinate image. It matches translated texture pixels on **every** moving piece; uniform fading or an unmoving masked image fails this check:
+A stronger optional RGB probe uses a diagnostic coordinate image. It measures partial opacity, identifies the subtly shifted picture frame inside each fixed mask, and verifies the middle uses its single unshifted frame. It also checks center-out fill against a contrasting picture:
 
 ```bash
 mkdir -p .work
@@ -112,7 +118,7 @@ sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
 
 ## Files and checkpoints
 
-`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>.png` assets are the actual screenshot cuts; `<panel>.png` assets are their independent outlines. Generated output is ignored by Git. The supplied original logo remains in the repository but is not loaded or copied into the theme.
+`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the single fixed outline image; its bright reveal expands from the center without changing line coordinates. Generated output is ignored by Git. The supplied original logo remains in the repository but is not loaded or copied into the theme.
 
 Implementation follows the [Plymouth script reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and installed examples. Changes use separate title-only conventional commits:
 
