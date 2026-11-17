@@ -1,11 +1,13 @@
 # Titanfall Pilot Link for Plymouth
 
-Two native Plymouth variants use the supplied Marauder emblem and animated angular cockpit lines. The video is a visual reference, never played during boot.
+Two native Plymouth variants use the supplied Marauder emblem and contours sampled from the actual Titan cockpit closure at 28.6–29.4 seconds of the YouTube reference. The theme renders separate chassis, upper-hatch, and lower-plate sprites; gameplay footage is not played during boot.
 
 - `titanfall-white`: white background, black lines.
 - `titanfall-black`: black background, white lines.
-- The logo fades in at the center; the lines converge and close at 3.6 seconds.
-- **The logo and lines fade out together from 3.8 to 4.6 seconds**, leaving the plain background until boot finishes.
+- The logo fades in at the center. From 0.6 to 1.4 seconds, the upper hatch slides down and the lower plate slides up.
+- **The logo and all cockpit lines fade out together from 1.65 to 2.45 seconds**, leaving the plain background until boot finishes.
+
+The panel contours come from the reference video. Their separate vertical sprite translations recreate the visible closing movement; they do not reproduce the game’s full 3D hinge motion or its later display-reopening sequence.
 
 The original logo colors are preserved in both variants. Password, question, and status callbacks remain available after the animation fades. Fast boots may end Plymouth before the sequence completes; the theme does not delay startup.
 
@@ -26,7 +28,7 @@ ffplay -autoexit build/preview-white-audio.mp4
 ffplay -autoexit build/preview-black-audio.mp4
 ```
 
-Audio is mixed for desktop previews only: machine noise starts at 0 seconds, Marauder speech at 0.7 seconds, and `the-line.m4a` at 3.8 seconds. Plymouth's script interface has no audio playback API, so the boot themes are silent. These timings are an original interpretation, not a verified reproduction of the YouTube reference.
+Audio is mixed for desktop previews only: machine noise starts at 0 seconds, Marauder speech at 0.3 seconds, and `the-line.m4a` at 2.6 seconds. Plymouth's script interface has no audio playback API, so the boot themes are silent. The reference was downloaded and visually inspected frame by frame. Audio placement is a custom desktop-preview mix.
 
 ## Test the actual Plymouth theme without installing
 
@@ -48,7 +50,7 @@ bash scripts/preview-plymouth.sh --headless white 8
 bash scripts/preview-plymouth.sh --headless black 8
 ```
 
-These save `build/plymouth-<variant>-midpoint.png` during the animation and `build/plymouth-<variant>-screenshot.png` after the fade. The final image should be completely plain. Logs are overwritten by each run.
+These save `build/plymouth-<variant>-midpoint.png` during movement, `build/plymouth-<variant>-closed.png` after the panels stop, and `build/plymouth-<variant>-screenshot.png` after the fade. The final image should be completely plain. Logs are overwritten by each run.
 
 Optional authentication rendering check (synthetic password prompt; do not type a real password):
 
@@ -84,10 +86,10 @@ sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
 
 `theme/` contains the readable script template. `scripts/build.py` generates the two installable directories in `build/themes/` and the preview videos. Generated files are ignored by Git. Each theme uses a handful of small PNG sprites, with no video-frame sequence in the initramfs.
 
-The supplied media remains unchanged in the repository. `git log --oneline` lists title-only conventional commits. To inspect any checkpoint without discarding current work:
+The supplied media remains unchanged in the repository. `assets/cockpit-close-reference.mp4` is a one-second, silent source excerpt from the linked reference; see `assets/README.md` for provenance. `git log --oneline` lists title-only conventional commits. To inspect any checkpoint without discarding current work:
 
 ```bash
 git switch -c inspect-checkpoint COMMIT_HASH
 ```
 
-Implementation follows the [official Plymouth scripting reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and the locally installed script theme. The requested skill search returned no Plymouth-specific skill; no third-party skill was installed. The YouTube reference could not be fetched during development, so the sequence follows the supplied assets and the requested black/white closing-and-fading behavior.
+Implementation follows the [official Plymouth scripting reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and the locally installed script theme. The requested skill search returned no Plymouth-specific skill; no third-party skill was installed. A later revision downloaded the YouTube reference with yt-dlp and inspected timestamped FFmpeg frame sheets. The TwelveLabs video-understanding skill was read in full and reviewed; it describes a hosted API and was not installed or invoked. The animation build runs locally with no hosted video service.
