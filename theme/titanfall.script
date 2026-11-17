@@ -8,13 +8,15 @@ height = Window.GetHeight();
 scale = Math.Max(width / 960, height / 540);
 line_width = Math.Int(960 * scale);
 line_height = Math.Int(540 * scale);
-line_image = Image("closing-lines.png").Scale(line_width, line_height);
-upper = Sprite(line_image);
-lower = Sprite(line_image);
+chassis = Sprite(Image("chassis.png").Scale(line_width, line_height));
+upper = Sprite(Image("upper-panel.png").Scale(line_width, line_height));
+lower = Sprite(Image("lower-panel.png").Scale(line_width, line_height));
 line_x = Window.GetX() + (width - line_width) / 2;
 line_y = Window.GetY() + (height - line_height) / 2;
-upper.SetPosition(line_x, line_y - height, 1);
-lower.SetPosition(line_x, line_y + height, 1);
+chassis.SetPosition(line_x, line_y, 1);
+upper.SetPosition(line_x, line_y - 210 * scale, 2);
+lower.SetPosition(line_x, line_y + 190 * scale, 2);
+chassis.SetOpacity(0);
 logo_image = Image("marauder-logo.png");
 logo_size = Math.Int(Math.Min(width, height) * 0.28);
 logo = Sprite(logo_image.Scale(logo_size, logo_size));
@@ -71,16 +73,15 @@ tick = 0;
 fun refresh()
 {
     seconds = tick / fps;
-    # Smoothstep: travel for 3 seconds, latch, then fade the seam away.
-    travel = Math.Clamp((seconds - 0.6) / 3, 0, 1);
-    eased = travel * travel * (3 - 2 * travel);
-    offset = height * (1 - eased);
-    upper.SetY(line_y - offset);
-    lower.SetY(line_y + offset);
-    opacity = 1 - Math.Clamp((seconds - 3.8) / 0.8, 0, 1);
-    upper.SetOpacity(opacity);
-    lower.SetOpacity(opacity);
-    logo.SetOpacity(Math.Clamp((seconds - 0.25) / 0.65, 0, 1) * opacity);
+    # Separate source-traced plates physically slide in opposite directions.
+    travel = Math.Clamp((seconds - 0.6) / 0.8, 0, 1);
+    upper.SetY(line_y + (-210 + 320 * travel) * scale);
+    lower.SetY(line_y + (190 - 260 * travel) * scale);
+    fade = 1 - Math.Clamp((seconds - 1.65) / 0.8, 0, 1);
+    chassis.SetOpacity(Math.Clamp(seconds / 0.35, 0, 1) * fade);
+    upper.SetOpacity(fade);
+    lower.SetOpacity(fade);
+    logo.SetOpacity(Math.Clamp((seconds - 0.25) / 0.35, 0, 1) * fade);
     tick++;
 }
 Plymouth.SetRefreshRate(fps);
