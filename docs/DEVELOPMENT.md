@@ -14,7 +14,7 @@ Changing a wallpaper, palette, or speed requires rebuilding, copying the generat
 
 ## Interactive CLI
 
-Run `./install.sh`. Arrow keys (or j/k and Enter) choose options in a terminal; numbered menus work with redirected input. The picture is optional. Missing SDDM images are reported, and the menu lets you choose a wallpaper or solid panels instead. Custom colors and speed use the same validation as the build CLI.
+Run `./install.sh`. Arrow keys (or j/k and Enter) choose options in a terminal; numbered menus work with redirected input. The picture menu has three choices: **SDDM**, **Picture**, and **Custom**. SDDM shows the detected screenshot path; Picture shows the bundled wallpaper path. The build uses the exact displayed path. Custom prompts for another file; blank input selects solid panels. Missing SDDM images are marked as not found and reported when selected. Custom colors and speed use the same validation as the build CLI.
 
 `./install.sh --preview-only` builds and offers the video preview without offering system installation. The settings and repeatable build command are saved in `build/setup-options.json`; build output goes to `build/setup-build.log`.
 
