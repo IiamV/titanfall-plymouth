@@ -19,6 +19,7 @@ import uuid
 
 from build import animation_speed, hex_color
 from sddm_background import SDDMImageNotFound, find_sddm_image
+from wallpaper import WallpaperNotFound, find_wallpaper
 
 ROOT = Path(__file__).resolve().parents[1]
 THEMES = Path('/usr/share/plymouth/themes')
@@ -114,8 +115,17 @@ def collect_options():
     except SDDMImageNotFound as error:
         sddm=None
         sddm_error=str(error)
-    picture=(ROOT/'docs/demo/wallpaper.svg').resolve()
-    sources=[f'SDDM — {sddm or "not found"}',f'Picture — {picture}','Custom — enter an image path']
+    try:
+        detected=find_wallpaper()
+        picture=detected.path
+        picture_error=None
+        suffix=' [default-folder fallback]' if detected.kind=='fallback' else ''
+    except WallpaperNotFound as error:
+        detected=None
+        picture=None
+        picture_error=str(error)
+        suffix=''
+    sources=[f'SDDM — {sddm or "not found"}',f'Picture — {picture or "not found"}{suffix}','Custom — enter an image path']
     while True:
         source=choose('Picture (optional)',sources)
         if source==0:
@@ -124,10 +134,11 @@ def collect_options():
                 continue
             image=sddm
         elif source==1:
-            if not picture.is_file():
-                print(f'  Image not found: {picture}\n  Choose SDDM or Custom instead.')
+            if not picture or not picture.is_file():
+                print(f'  {picture_error or f"Image not found: {picture}"}\n  Choose SDDM or Custom instead.')
                 continue
             image=str(picture)
+            print(f'  Wallpaper source: {detected.source} ({detected.kind})')
         else:
             image=ask('Custom image path (Enter for no picture)',
                       validate=lambda value:image_path(value) if value else None)

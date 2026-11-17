@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from sddm_background import SDDMImage, SDDMImageNotFound, find_sddm_image
+from wallpaper import WallpaperNotFound, find_wallpaper
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
@@ -279,6 +280,7 @@ if __name__ == "__main__":
     parser.add_argument("--speed",type=animation_speed,default=1,help="animation speed multiplier, 0.25..4 (default: 1)")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--background",type=Path,help="picture to cut into the fixed panel shapes")
+    group.add_argument("--wallpaper",action="store_true",help="discover a user wallpaper or a standard-folder fallback")
     group.add_argument("--sddm-background",action="store_true")
     group.add_argument("--sddm-preview",action="store_true")
     args = parser.parse_args()
@@ -288,9 +290,12 @@ if __name__ == "__main__":
             path = args.background.expanduser().resolve()
             if not path.is_file(): parser.error(f"Background image not found: {path}")
             background = SDDMImage(path,"","custom wallpaper")
+        elif args.wallpaper:
+            detected=find_wallpaper()
+            background=SDDMImage(detected.path,"",f"{detected.kind} wallpaper ({detected.source})")
         elif args.sddm_background or args.sddm_preview:
             background = find_sddm_image(preview=args.sddm_preview)
-    except SDDMImageNotFound as error:
+    except (SDDMImageNotFound,WallpaperNotFound) as error:
         parser.error(str(error))
     if background: print(f"Using {background.kind}: {background.path}",flush=True)
     build(args.audio,background,args.panel_color,args.line_color,args.speed)
