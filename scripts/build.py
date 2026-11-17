@@ -61,10 +61,11 @@ def build(audio, background=None):
     if min(panel["keys"][-2][0] for panel in panels.values()) < line_in_end:
         raise SystemExit("Pictures must wait until the inward line entrance finishes")
     duration = max(source_duration,line_out_end+config["blank_hold"])
-    fit = "contain" if background and background.kind == "packaged theme screenshot" else "cover"
+    fit = "cover"
     setup = [f"fps = {fps};", f"assembly_time = {assembly_time};",
              f"line_in_start = {line_in_start};", f"line_in_duration = {line_in_duration};",
              f"line_out_start = {line_out_start};", f"line_out_duration = {line_out_duration};",
+             f"line_frame_count = {math.ceil(line_in_duration*fps)+1};",
              f"panel_order = {json.dumps(list(panels))};"]
     for name, panel in panels.items():
         setup += [f'lighting["{name}"] = {json.dumps(panel["keys"])};',
@@ -80,8 +81,7 @@ def build(audio, background=None):
         if background:
             run("magick", str(background.path)+"[0]", "-background", bg, "-alpha", "remove",
                 "-alpha", "off", "PNG24:"+str(theme / "background.png"))
-            fitting = (f"scale=960:540:force_original_aspect_ratio=decrease,pad=960:540:(ow-iw)/2:(oh-ih)/2:color={bg}"
-                       if fit == "contain" else "scale=960:540:force_original_aspect_ratio=increase,crop=960:540")
+            fitting = "scale=960:540:force_original_aspect_ratio=increase,crop=960:540"
             ffmpeg("-i", theme / "background.png", "-vf", fitting, "-frames:v", 1,
                    "-pix_fmt", "rgb24", theme / "assembled.png")
         else:
@@ -94,12 +94,31 @@ def build(audio, background=None):
                 if (a[0] == b[0] and a[0] in (0,960)) or (a[1] == b[1] and a[1] in (0,540)):
                     continue
                 segments.add(tuple(sorted((tuple(a),tuple(b)))))
-        strokes = "".join(f'<line x1="{a[0]}" y1="{a[1]}" x2="{b[0]}" y2="{b[1]}"/>'
-                          for a,b in sorted(segments))
-        outlines = theme / "lines.svg"
-        outlines.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540">'
-                            f'<g stroke="{fg}" stroke-width="6" stroke-linecap="round">{strokes}</g></svg>')
-        run("magick", "-background", "none", outlines, "PNG32:"+str(theme / "lines.png"))
+        # Drop partial duplicates at the middle/bottom junctions so every
+        # uninterrupted seam has one midpoint and one pair of endpoints.
+        def on_segment(point, a, b):
+            return ((point[0]-a[0])*(b[1]-a[1]) == (point[1]-a[1])*(b[0]-a[0])
+                    and min(a[0],b[0]) <= point[0] <= max(a[0],b[0])
+                    and min(a[1],b[1]) <= point[1] <= max(a[1],b[1]))
+        segments = sorted(segment for segment in segments if not any(
+            segment != other and all(on_segment(point,*other) for point in segment)
+            for other in segments))
+        line_frames = math.ceil(line_in_duration*fps)+1
+        for frame in range(line_frames):
+            fraction = frame/(line_frames-1)/2
+            strokes = []
+            if frame:
+                for a,b in segments:
+                    for start,end in ((a,b),(b,a)):
+                        x = start[0]+(end[0]-start[0])*fraction
+                        y = start[1]+(end[1]-start[1])*fraction
+                        strokes.append(f'<line x1="{start[0]}" y1="{start[1]}" x2="{x}" y2="{y}"/>')
+            outlines = theme / "lines.svg"
+            outlines.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540">'
+                                f'<g stroke="{fg}" stroke-width="6" stroke-linecap="butt">'+
+                                "".join(strokes)+'</g></svg>')
+            run("magick", "-background", "none", outlines, "PNG32:"+str(theme / f"lines-{frame}.png"))
+        shutil.copy2(theme / f"lines-{line_frames-1}.png",theme / "lines.png")
         for part, panel in panels.items():
             points = " ".join(f"{x},{y}" for x,y in panel["polygon"])
             mask_svg = theme / f"mask-{part}.svg"
@@ -151,13 +170,19 @@ def build(audio, background=None):
         inputs += ["-loop",1,"-framerate",fps,"-i",theme / "assembled.png"]
         filters.append(f"[{previous}][{full_index}:v]overlay=x=0:y=0:enable='gte(t,{assembly_time})'[joined]")
         line_index = full_index+1
-        inputs += ["-loop",1,"-framerate",fps,"-i",theme / "lines.png"]
-        inward = f"clip((T-{line_in_start})/{line_in_duration},0,1)"
-        outward = f"clip((T-{line_out_start})/{line_out_duration},0,1)"
-        threshold = f"if(lt(T,{line_in_end}),1-({inward}),({outward}))"
-        radius = "max(abs(X-W/2)/(W/2),abs(Y-H/2)/(H/2))"
-        condition = f"gt(T,{line_in_start})*lt(T,{line_out_end})*gte({radius},{threshold})"
-        filters.append(f"[{line_index}:v]format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='alpha(X,Y)*({condition})'[borders]")
+        timeline = BUILD / f"line-timeline-{variant}"
+        if timeline.exists(): shutil.rmtree(timeline)
+        timeline.mkdir()
+        for tick in range(math.ceil(duration*fps)+1):
+            seconds = tick/fps
+            if seconds < line_in_end:
+                visible = max(0,min(1,(seconds-line_in_start)/line_in_duration))
+            else:
+                visible = 1-max(0,min(1,(seconds-line_out_start)/line_out_duration))
+            frame = int(visible*(line_frames-1)+0.5)
+            (timeline / f"{tick}.png").symlink_to(theme / f"lines-{frame}.png")
+        inputs += ["-framerate",fps,"-i",timeline / "%d.png"]
+        filters.append(f"[{line_index}:v]format=rgba[borders]")
         filters.append("[joined][borders]overlay=0:0[out]")
         preview = BUILD / f"preview-{variant}.mp4"
         ffmpeg("-f","lavfi","-i",f"color=c={bg}:s=960x540:r={fps}:d={duration}",*inputs,
@@ -171,7 +196,7 @@ def build(audio, background=None):
     manifest = {"source":config["source"],"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
                 "source_duration":source_duration,"source_frames":metadata["streams"][0].get("nb_frames"),"fps":fps,
                 "panels":panels,"mode":"inward-pictures-outward","assembly_time":assembly_time,
-                "lines":{**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
+                "lines":{"animation":"segment-endpoints","frames":line_frames,"segments":segments,**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
                 "preview_duration":duration,"artwork":config["artwork"],
                 "background":({"path":str(background.path),"theme":background.theme,"kind":background.kind,"fit":fit} if background else None)}
     (BUILD/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")

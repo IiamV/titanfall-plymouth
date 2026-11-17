@@ -8,8 +8,8 @@ origin_x = Window.GetX(); origin_y = Window.GetY();
 window_x = origin_x; window_y = origin_y;
 assembled_original = Image("assembled.png");
 assembled_sprite = Sprite(); assembled_sprite.SetOpacity(0);
-lines_original = Image("lines.png");
-for (line_index = 0; line_index < 4; line_index++) line_parts[line_index] = Sprite();
+line_sprite = Sprite(); line_sprite.SetOpacity(0);
+line_frame = -1;
 for (load_index = 0; panel_order[load_index]; load_index++)
 {
     surfaces[panel_order[load_index]].sprite = Sprite();
@@ -27,7 +27,8 @@ fun resize_layout()
     global.origin_x = Window.GetX(); global.origin_y = Window.GetY();
     global.window_x = origin_x; global.window_y = origin_y;
     global.scale_x = width/960; global.scale_y = height/540;
-    global.lines_image = lines_original.Scale(width,height);
+    if (line_original) line_sprite.SetImage(line_original.Scale(width,height));
+    line_sprite.SetPosition(origin_x,origin_y,20);
     for (local.i = 0; panel_order[local.i]; local.i++)
     {
         local.name = panel_order[local.i];
@@ -43,32 +44,19 @@ fun resize_layout()
     }
     if (message_sprite) message_sprite.SetPosition(origin_x+20,origin_y+height-45,105);
 }
-fun line_piece(index,x,y,w,h)
-{
-    if (w <= 0 || h <= 0) return;
-    line_parts[index].SetImage(lines_image.Crop(x,y,w,h));
-    line_parts[index].SetPosition(origin_x+x,origin_y+y,20);
-    line_parts[index].SetOpacity(1);
-}
 fun draw_lines(threshold)
 {
-    for (local.i = 0; local.i < 4; local.i++) line_parts[local.i].SetOpacity(0);
-    if (threshold >= 1) return;
-    if (threshold <= 0)
+    local.visible = 1-threshold;
+    line_sprite.SetOpacity(local.visible > 0);
+    if (local.visible <= 0) return;
+    local.frame = Math.Int(local.visible*(line_frame_count-1)+0.5);
+    if (local.frame != line_frame)
     {
-        line_parts[0].SetImage(lines_image);
-        line_parts[0].SetPosition(origin_x,origin_y,20);
-        line_parts[0].SetOpacity(1);
-        return;
+        global.line_original = Image("lines-"+local.frame+".png");
+        line_sprite.SetImage(line_original.Scale(width,height));
+        global.line_frame = local.frame;
     }
-    # Remove a centered rectangle. Its shrinking entrance exposes strokes
-    # inward; its growing exit retracts those same fixed strokes outward.
-    local.w = Math.Int(width*threshold); local.h = Math.Int(height*threshold);
-    local.x = Math.Int((width-local.w)/2); local.y = Math.Int((height-local.h)/2);
-    line_piece(0,0,0,width,local.y);
-    line_piece(1,0,local.y+local.h,width,height-local.y-local.h);
-    line_piece(2,0,local.y,local.x,local.h);
-    line_piece(3,local.x+local.w,local.y,width-local.x-local.w,local.h);
+    line_sprite.SetPosition(origin_x,origin_y,20);
 }
 fun sample(keys, seconds)
 {
