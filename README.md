@@ -26,8 +26,8 @@ Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into
 - Pictures light up left → middle → right, then top → bottom. The left-to-right fades overlap; top waits until the right finishes, and bottom waits until top finishes.
 - The middle picture only fades in, with zero movement.
 - Other pictures mostly fade, with small movement **inside their fixed masks**: 24 pixels on the sides, 12 on top, 6 on the bottom at the reference resolution.
-- Top and bottom finish in 0.22 and 0.20 seconds; side fades take 0.55 seconds and the middle fade takes 0.70 seconds.
-- Inward line drawing runs from 0.10 to 0.95 seconds. Pictures appear from 1.05 to 2.50 seconds; outward line removal runs from 2.65 to 3.50 seconds.
+- Panel light-up runs about 25% faster: top and bottom finish in roughly 0.18 and 0.16 seconds; side fades take 0.44 seconds and the middle fade takes 0.56 seconds.
+- Inward line drawing runs from 0.10 to 0.95 seconds. Pictures appear from 1.05 to 2.21 seconds; outward line removal runs from 2.36 to 3.21 seconds.
 
 The header is enlarged by shortening the middle and side panels. The bottom width matches the middle panel's lower stem. Black and white variants control the empty-screen and outline colors; the screenshot keeps its colors. For the installed dark WarGames picture, use the black variant with white outlines.
 
