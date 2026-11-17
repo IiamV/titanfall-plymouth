@@ -39,7 +39,8 @@ def build(audio):
         svg_path = theme / "closing-lines.svg"
         svg_path.write_text(svg)
         run("magick", "-background", "none", svg_path, theme / "closing-lines.png")
-        shutil.copy2(ROOT / "marauder-logo.png", theme)
+        # The supplied .png is actually WebP; Plymouth needs a real PNG.
+        run("magick", ROOT / "marauder-logo.png", "PNG32:" + str(theme / "marauder-logo.png"))
         for asset, color in (("panel", bg),):
             ffmpeg("-f", "lavfi", "-i", f"color=c={color}:s=16x16", "-frames:v", 1,
                    "-threads", 1, theme / f"{asset}.png")
