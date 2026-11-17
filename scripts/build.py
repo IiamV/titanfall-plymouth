@@ -105,18 +105,31 @@ def build(audio, background=None):
             for other in segments))
         line_frames = math.ceil(line_in_duration*fps)+1
         for frame in range(line_frames):
-            fraction = frame/(line_frames-1)/2
-            strokes = []
+            visible = frame/(line_frames-1)
+            fraction = visible/2
+            horizontal, others = [], []
             if frame:
                 for a,b in segments:
+                    if a[1] != b[1]:
+                        others.append(f'<line x1="{a[0]}" y1="{a[1]}" x2="{b[0]}" y2="{b[1]}"/>')
+                        continue
+                    # Only the middle-to-top and middle-to-bottom seams.
                     for start,end in ((a,b),(b,a)):
                         x = start[0]+(end[0]-start[0])*fraction
-                        y = start[1]+(end[1]-start[1])*fraction
-                        strokes.append(f'<line x1="{start[0]}" y1="{start[1]}" x2="{x}" y2="{y}"/>')
+                        horizontal.append(f'<line x1="{start[0]}" y1="{start[1]}" x2="{x}" y2="{start[1]}"/>')
+            # Preserve the previous screen-centered wipe for all other seams.
+            inset_x, inset_y = 480*visible,270*visible
+            clips = [(0,0,960,inset_y),(0,540-inset_y,960,inset_y),
+                     (0,inset_y,inset_x,540-2*inset_y),
+                     (960-inset_x,inset_y,inset_x,540-2*inset_y)]
+            rectangles = "".join(f'<rect x="{x}" y="{y}" width="{w}" height="{h}"/>'
+                                 for x,y,w,h in clips if w>0 and h>0)
             outlines = theme / "lines.svg"
             outlines.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540">'
-                                f'<g stroke="{fg}" stroke-width="6" stroke-linecap="butt">'+
-                                "".join(strokes)+'</g></svg>')
+                                '<defs><clipPath id="screen-wipe">'+rectangles+'</clipPath></defs>'
+                                f'<g stroke="{fg}" stroke-width="6" stroke-linecap="butt">'
+                                '<g clip-path="url(#screen-wipe)">'+"".join(others)+'</g>'+
+                                "".join(horizontal)+'</g></svg>')
             run("magick", "-background", "none", outlines, "PNG32:"+str(theme / f"lines-{frame}.png"))
         shutil.copy2(theme / f"lines-{line_frames-1}.png",theme / "lines.png")
         for part, panel in panels.items():
@@ -196,7 +209,7 @@ def build(audio, background=None):
     manifest = {"source":config["source"],"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
                 "source_duration":source_duration,"source_frames":metadata["streams"][0].get("nb_frames"),"fps":fps,
                 "panels":panels,"mode":"inward-pictures-outward","assembly_time":assembly_time,
-                "lines":{"animation":"segment-endpoints","frames":line_frames,"segments":segments,**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
+                "lines":{"animation":"horizontal-endpoints","frames":line_frames,"segments":segments,**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
                 "preview_duration":duration,"artwork":config["artwork"],
                 "background":({"path":str(background.path),"theme":background.theme,"kind":background.kind,"fit":fit} if background else None)}
     (BUILD/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
