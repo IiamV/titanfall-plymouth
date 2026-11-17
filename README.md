@@ -20,7 +20,7 @@ These demos use the installed WarGames theme's packaged SDDM screenshot. The GIF
 
 ## Animation
 
-Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into an expanded top header, left and right sides, a middle panel, and the narrow bottom panel. Side-to-top seams are continuous diagonals; the middle-to-top seam stays horizontal. No logo is drawn.
+Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into an expanded top header, left and right sides, a middle panel, and the narrow bottom panel. Side-to-top seams are continuous diagonals; the middle-to-top seam stays horizontal. Only internal seams are drawn; there is no outer screen border or logo.
 
 - The thicker outlines stay in place. They draw from the screen edges inward before the pictures appear, then retract from the center outward after assembly.
 - The middle picture only fades in, with zero movement.
@@ -68,7 +68,7 @@ Discovery reads standard SDDM configuration locations, respects theme directorie
 
 ## Layout and timing
 
-The [generated panel artwork](theme/panels/generated-panels-v3.png) and [its prompt](theme/panels/generation-prompt-v3.txt) define the silhouettes. `theme/lighting.json` records the five masks, small internal picture offsets, fade times, and inward entrance and outward exit timing. The entire 5.44-second local video remains the timing reference; original media is never trimmed or overwritten.
+The [generated panel artwork](theme/panels/generated-panels-v3.png) and [its prompt](theme/panels/generation-prompt-v3.txt) were the silhouette reference. Internal seams are now drawn directly from the panel polygons, excluding all edges along the screen rim. `theme/lighting.json` records the five masks, small internal picture offsets, fade times, and inward entrance and outward exit timing. The entire 5.44-second local video remains the timing reference; original media is never trimmed or overwritten.
 
 The snapshot is fitted to the 960×540 assembly canvas before cutting: packaged SDDM screenshots are contained without cropping, while wallpapers cover the canvas. The complete canvas and all panel coordinates resize with the screen. The responsive layout is checked at 4:3 and ultrawide sizes.
 
@@ -97,7 +97,7 @@ python3 scripts/check-layouts.py
 python3 scripts/test-sddm-background.py
 ```
 
-`build/` stores the blank starting frame, inward line drawing stages, partial-picture captures, full outlines, outward line removal stages, and the final screenshot. The checks verify fixed masks and outline coordinates, thicker diagonal seams, zero middle movement, faster top/bottom timing, inward drawing and outward removal, absence of a logo, and exact final screenshot reconstruction. Picture pixels cannot escape their panel masks. The exit-direction check needs a contrasting image; black lines on a dark SDDM picture are verified using the diagnostic picture instead. Responsive checks verify visible borders and proportional panel placement. Discovery tests cover configuration precedence, overrides, packaged screenshots, and missing files.
+`build/` stores the blank starting frame, inward line drawing stages, partial-picture captures, full outlines, outward line removal stages, and the final screenshot. The checks verify fixed masks and outline coordinates, thicker diagonal seams, zero middle movement, faster top/bottom timing, inward drawing and outward removal, absence of a logo, and exact final screenshot reconstruction. Picture pixels cannot escape their panel masks. The exit-direction check needs a contrasting image; black lines on a dark SDDM picture are verified using the diagnostic picture instead. Responsive checks verify proportional internal seam placement and absence of an outer border. Discovery tests cover configuration precedence, overrides, packaged screenshots, and missing files.
 
 A stronger optional RGB probe uses a diagnostic coordinate image. It measures partial opacity, identifies the subtly shifted picture frame inside each fixed mask, and verifies the middle uses its single unshifted frame. It also checks outward removal against a contrasting picture:
 
