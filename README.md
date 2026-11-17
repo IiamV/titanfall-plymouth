@@ -16,18 +16,24 @@ Cockpit panels light up **left → middle → right → top → bottom**, reveal
 
 [Wallpaper video](docs/demo/wallpaper.mp4) · [Example wallpaper](docs/demo/wallpaper.svg)
 
-## Build and try
+## Interactive setup
 
-Needs **Python 3, FFmpeg, ImageMagick, and Plymouth's script plugin**. Builds work without the original reference media.
+Needs **Python 3, FFmpeg, ImageMagick, and Plymouth's script plugin**.
 
 ```bash
-python3 scripts/build.py --sddm-preview
-ffplay -autoexit build/preview-black.mp4
+git clone https://github.com/IiamV/titanfall-plymouth.git
+cd titanfall-plymouth
+./install.sh
 ```
 
-This discovers your SDDM theme's packaged screenshot. Use `--sddm-background` for its configured background instead. A missing image produces an error.
+Use arrow keys and Enter to choose **SDDM screenshot, SDDM background, your wallpaper, the example wallpaper, or no picture**. Then choose colors and speed. The wizard builds a preview and offers installation afterward.
 
-Customize a wallpaper, colors, and speed:
+- Test without installation: `./install.sh --preview-only`
+- Restore the previous theme: `./install.sh --restore`
+
+Installation requests sudo only at the final step and uses `plymouth-set-default-theme -R`. Existing theme files and the previous selection are backed up locally. Builds work without the original reference media.
+
+## Command-line options
 
 ```bash
 python3 scripts/build.py --background docs/demo/wallpaper.svg \
@@ -35,26 +41,6 @@ python3 scripts/build.py --background docs/demo/wallpaper.svg \
 ffplay -autoexit build/preview-custom.mp4
 ```
 
-- `--panel-color`: backdrop and solid-panel color; a wallpaper keeps its own colors. Omit `--background` for solid panels.
-- `--line-color`: seam color. Accepts quoted `'#RGB'` or `'#RRGGBB'`; omitted lines use automatic black/white contrast.
-- `--speed`: `1` is normal, `1.25` is faster, `0.75` is slower. Range: `0.25–4`; affects the whole animation.
+`--panel-color` sets solid panels/backdrop; wallpaper keeps its colors. `--line-color` sets the seams. Both accept `'#RGB'` or `'#RRGGBB'`. Speed ranges from `0.25–4`: `1.25` is faster, `0.75` is slower. Settings apply when rebuilding.
 
-Without color options, both black and white variants are built. Color options create `titanfall-custom`. Changing settings requires rebuilding the theme.
-
-Native preview without installing (X11/XWayland):
-
-```bash
-bash scripts/preview-plymouth.sh custom
-```
-
-## Install after previewing
-
-Replace `custom` with `black` or `white` for a default variant.
-
-```bash
-plymouth-set-default-theme > build/previous-theme.txt
-sudo cp -r build/themes/titanfall-custom /usr/share/plymouth/themes/
-sudo plymouth-set-default-theme -R titanfall-custom
-```
-
-The picture is a snapshot, not live SDDM. Audio is optional in video previews; boot audio is not implemented. See [testing, audio, and rollback](docs/DEVELOPMENT.md) for details.
+The picture is a snapshot, not live SDDM. Audio is optional in video previews; boot audio is not implemented. See [testing, audio, manual installation, and rollback](docs/DEVELOPMENT.md) for details.

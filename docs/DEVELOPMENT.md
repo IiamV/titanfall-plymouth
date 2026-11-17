@@ -12,11 +12,22 @@ The picture fills a 960×540 canvas using aspect-preserving cover scaling and a 
 
 Changing a wallpaper, palette, or speed requires rebuilding, copying the generated theme, and regenerating the initramfs. A snapshot cannot display a live SDDM greeter or follow desktop wallpaper changes automatically.
 
+## Interactive CLI
+
+Run `./install.sh`. Arrow keys (or j/k and Enter) choose options in a terminal; numbered menus work with redirected input. The picture is optional. Missing SDDM images are reported, and the menu lets you choose a wallpaper or solid panels instead. Custom colors and speed use the same validation as the build CLI.
+
+`./install.sh --preview-only` builds and offers the video preview without offering system installation. The settings and repeatable build command are saved in `build/setup-options.json`; build output goes to `build/setup-build.log`.
+
+Installation reads the current theme and backs up any existing target theme under `build/install-backups/` before privileged writes. `build/install-history.json` records rollback information. A failed install attempts to restore the old assets and selection; if restoration fails, the saved history remains available for `./install.sh --restore`. Keep this checkout and its `build/` directory until rollback is no longer needed. Restoring changes the active theme and restores overwritten files; unused newly copied assets may remain in the theme directory.
+
+Automatic installation needs `plymouth-set-default-theme -R`; use build/preview mode and your distribution's installation procedure if that tool is unavailable. The wizard does not install dependencies, change boot arguments, or reboot.
+
 ## Native tests
 
 The preview runs in private user, mount, network, and PID namespaces. It does not select a system theme or modify the host daemon configuration. Headless previews require Xvfb and ImageMagick. Visible previews require X11 or XWayland.
 
 ```bash
+python3 scripts/test-setup.py
 python3 scripts/test-build-options.py
 python3 scripts/test-sddm-background.py
 python3 scripts/build.py --sddm-preview
@@ -63,13 +74,23 @@ On the development machine, originals are saved in a local stash named `local or
 
 ## Installation and rollback
 
-The install commands in the README are for systems using `plymouth-set-default-theme -R`. Ensure the system already has the appropriate Plymouth initramfs hook and boot arguments, and verify regeneration succeeds before rebooting. The project does not change SDDM or desktop settings or delay boot to finish the animation.
+The interactive installer supports systems using `plymouth-set-default-theme -R`. Ensure the system already has the appropriate Plymouth initramfs hook and boot arguments, and verify regeneration succeeds before rebooting. The project does not change SDDM or desktop settings or delay boot to finish the animation.
 
-Restore the previous theme:
+Restore an interactive installation:
 
 ```bash
-sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
+./install.sh --restore
 ```
+
+For manual installation after previewing (replace `custom` with `black` or `white` if appropriate):
+
+```bash
+plymouth-set-default-theme > build/previous-theme.txt
+sudo cp -r build/themes/titanfall-custom /usr/share/plymouth/themes/
+sudo plymouth-set-default-theme -R titanfall-custom
+```
+
+For a manual install, restore with `sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"`.
 
 Changes are saved in separate title-only conventional commits. Inspect a checkpoint without discarding current work:
 
