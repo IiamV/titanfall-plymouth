@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=Titanfall Pilot Link
-Description=Reference-traced Titan cockpit hatch and centered Marauder emblem fade out together
+Description=Clean four-panel cockpit closure with a top-panel Marauder emblem and shared final fade
 ModuleName=script
 
 [script]
