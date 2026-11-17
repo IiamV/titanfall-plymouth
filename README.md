@@ -1,4 +1,24 @@
-# Titanfall SDDM panel assembly for Plymouth
+# Titanfall Plymouth
+
+A Titanfall-inspired Plymouth splash that lights up a cockpit made from your SDDM screenshot or wallpaper. Lines draw inward, the picture pieces slide and fade into fixed panels, then the lines retract outward to leave the completed image.
+
+## Demo
+
+### Black variant
+
+![Black variant: inward line drawing, panel lighting, and outward line removal](docs/demo/black.gif)
+
+[Watch or download the black demo with audio](docs/demo/black-audio.mp4).
+
+### White variant
+
+![White variant: inward line drawing, panel lighting, and outward line removal](docs/demo/white.gif)
+
+[Watch or download the white demo with audio](docs/demo/white-audio.mp4).
+
+These demos use the installed WarGames theme's packaged SDDM screenshot. The GIFs loop silently; the MP4s include the supplied audio mix. Boot audio is not implemented. The picture is a static snapshot whose individual cuts animate during the sequence; it is not a live login screen.
+
+## Animation
 
 Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into an expanded top header, left and right sides, a middle panel, and the narrow bottom panel. Side-to-top seams are continuous diagonals; the middle-to-top seam stays horizontal. No logo is drawn.
 
@@ -118,7 +138,7 @@ sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
 
 ## Files and checkpoints
 
-`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the single fixed outline image; its bright reveal expands from the center without changing line coordinates. Generated output is ignored by Git. The supplied original logo remains in the repository but is not loaded or copied into the theme.
+`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the single fixed outline image; clipping reveals it from the edges inward and removes it from the center outward without changing line coordinates. Generated build output is ignored by Git; the shareable GIF and audio MP4 demos are tracked in `docs/demo/`. The supplied original logo remains in the repository but is not loaded or copied into the theme.
 
 Implementation follows the [Plymouth script reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and installed examples. Changes use separate title-only conventional commits:
 
