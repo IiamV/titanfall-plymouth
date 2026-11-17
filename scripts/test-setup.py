@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import patch
 import setup
 from sddm_background import SDDMImage, SDDMImageNotFound
+from wallpaper import Wallpaper, WallpaperNotFound
 
 
 class SetupTest(unittest.TestCase):
@@ -33,6 +34,8 @@ class SetupTest(unittest.TestCase):
         picture.write_text('<svg/>')
         discovery=patch.object(setup,'find_sddm_image',return_value=SDDMImage(self.sddm,'test','packaged theme screenshot'))
         discovery.start(); self.addCleanup(discovery.stop)
+        wallpaper=patch.object(setup,'find_wallpaper',return_value=Wallpaper(picture,'test desktop','configured'))
+        wallpaper.start(); self.addCleanup(wallpaper.stop)
         self.output=contextlib.redirect_stdout(io.StringIO())
         self.output.__enter__(); self.addCleanup(self.output.__exit__,None,None,None)
 
@@ -108,6 +111,19 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(labels,[f'SDDM — {self.sddm}',f'Picture — {picture}','Custom — enter an image path'])
         self.assertEqual(options['picture'],picture)
         self.assertEqual(options['command'][options['command'].index('--background')+1],picture)
+
+    def test_missing_wallpaper_allows_custom_fallback(self):
+        with patch.object(setup,'find_wallpaper',side_effect=WallpaperNotFound('missing wallpaper')),patch.object(setup,'choose',side_effect=[1,2,0]) as menu,patch('builtins.input',side_effect=['','1']):
+            options=setup.collect_options()
+        self.assertEqual(menu.call_args_list[0].args[1][1],'Picture — not found')
+        self.assertIsNone(options['picture'])
+
+    def test_default_folder_is_marked_as_fallback(self):
+        picture=self.root/'docs/demo/wallpaper.svg'
+        with patch.object(setup,'find_wallpaper',return_value=Wallpaper(picture,'default wallpaper folder','fallback')),patch.object(setup,'choose',side_effect=[1,0]) as menu,patch('builtins.input',return_value='1'):
+            options=setup.collect_options()
+        self.assertIn('[default-folder fallback]',menu.call_args_list[0].args[1][1])
+        self.assertEqual(options['picture'],str(picture))
 
     def test_sddm_build_uses_the_displayed_image(self):
         with patch.object(setup,'choose',side_effect=[0,0]),patch('builtins.input',return_value='1'):
