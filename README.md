@@ -22,7 +22,7 @@ These demos use the installed WarGames theme's packaged SDDM screenshot. The GIF
 
 Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into an expanded top header, left and right sides, a middle panel, and the narrow bottom panel. Side-to-top seams are continuous diagonals; the middle-to-top seam stays horizontal. Only internal seams are drawn; there is no outer screen border or logo.
 
-- The thicker outlines stay in place. They draw from the screen edges inward before the pictures appear, then retract from the center outward after assembly.
+- The thicker outlines stay in place. Each seam draws from its two endpoints toward its own midpoint before the pictures appear, then retracts from its midpoint toward the endpoints after assembly. Horizontal seams animate along their length, never as a top-down wipe.
 - The middle picture only fades in, with zero movement.
 - Other pictures mostly fade, with small movement **inside their fixed masks**: 24 pixels on the sides, 12 on top, 6 on the bottom at the reference resolution.
 - Top and bottom finish in 0.22 and 0.20 seconds; side fades take 0.55 seconds and the middle fade takes 0.70 seconds.
@@ -70,7 +70,7 @@ Discovery reads standard SDDM configuration locations, respects theme directorie
 
 The [generated panel artwork](theme/panels/generated-panels-v3.png) and [its prompt](theme/panels/generation-prompt-v3.txt) were the silhouette reference. Internal seams are now drawn directly from the panel polygons, excluding all edges along the screen rim. `theme/lighting.json` records the five masks, small internal picture offsets, fade times, and inward entrance and outward exit timing. The entire 5.44-second local video remains the timing reference; original media is never trimmed or overwritten.
 
-The snapshot is fitted to the 960×540 assembly canvas before cutting: packaged SDDM screenshots are contained without cropping, while wallpapers cover the canvas. The complete canvas and all panel coordinates resize with the screen. The responsive layout is checked at 4:3 and ultrawide sizes.
+The snapshot fills the 960×540 assembly canvas before cutting. Both packaged SDDM screenshots and wallpapers use aspect-preserving cover scaling with a centered crop; no palette-colored letterbox or side padding is added. Different aspect ratios can crop the picture edges. The complete canvas and all panel coordinates resize with the screen. The responsive layout is checked at 4:3 and ultrawide sizes.
 
 Plymouth runs before the graphical login session; it cannot show a live SDDM window underneath its rendering. This implementation assembles a build-time image snapshot instead. Repeat the build, copy, and initramfs steps after changing the selected image. Neither SDDM nor desktop settings are modified. See the [official Plymouth overview](https://wiki.freedesktop.org/www/Software/Plymouth/) for its early-boot role.
 
@@ -97,7 +97,7 @@ python3 scripts/check-layouts.py
 python3 scripts/test-sddm-background.py
 ```
 
-`build/` stores the blank starting frame, inward line drawing stages, partial-picture captures, full outlines, outward line removal stages, and the final screenshot. The checks verify fixed masks and outline coordinates, thicker diagonal seams, zero middle movement, faster top/bottom timing, inward drawing and outward removal, absence of a logo, and exact final screenshot reconstruction. Picture pixels cannot escape their panel masks. The exit-direction check needs a contrasting image; black lines on a dark SDDM picture are verified using the diagnostic picture instead. Responsive checks verify proportional internal seam placement and absence of an outer border. Discovery tests cover configuration precedence, overrides, packaged screenshots, and missing files.
+`build/` stores the blank starting frame, inward line drawing stages, partial-picture captures, full outlines, outward line removal stages, and the final screenshot. The checks verify fixed masks and outline coordinates, thicker diagonal seams, zero middle movement, faster top/bottom timing, endpoint-to-midpoint drawing and midpoint-to-endpoint removal on both horizontal seams, absence of a logo, and exact final screenshot reconstruction. Picture pixels cannot escape their panel masks. The exit-direction check needs a contrasting image; black lines on a dark SDDM picture are verified using the diagnostic picture instead. Responsive checks verify proportional internal seam placement and absence of an outer border. Discovery tests cover configuration precedence, overrides, packaged screenshots, and missing files.
 
 A stronger optional RGB probe uses a diagnostic coordinate image. It measures partial opacity, identifies the subtly shifted picture frame inside each fixed mask, and verifies the middle uses its single unshifted frame. It also checks outward removal against a contrasting picture:
 
@@ -142,7 +142,7 @@ sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
 
 ## Files and checkpoints
 
-`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the single fixed outline image; clipping reveals it from the edges inward and removes it from the center outward without changing line coordinates. Generated build output is ignored by Git; the shareable GIF and audio MP4 demos are tracked in `docs/demo/`. The original logo is kept locally with the source media and is not loaded or copied into the theme.
+`build/manifest.json` records source hashes, timing, image selection, and panel bounds. `face-<panel>-<frame>.png` assets contain the small internal picture shifts under fixed masks. `face-<panel>.png` is the settled cut. `lines.png` is the complete internal outline image. Precomputed `lines-<frame>.png` assets reveal each seam along its own length from both endpoints, and run in reverse for the center-out exit. Native Plymouth and video demos use the same line frames. Generated build output is ignored by Git; the shareable GIF and audio MP4 demos are tracked in `docs/demo/`. The original logo is kept locally with the source media and is not loaded or copied into the theme.
 
 Implementation follows the [Plymouth script reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and installed examples. Changes use separate title-only conventional commits:
 
