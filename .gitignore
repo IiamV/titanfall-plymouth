@@ -1,3 +1,11 @@
 .work/
 build/
 __pycache__/
+
+# Local source media; keep out of published history.
+/closing-pilot.mp4
+/machine-noise.m4a
+/marauder-corps.m4a
+/the-line.m4a
+/marauder-logo.png
+/assets/cockpit-close-reference.mp4
