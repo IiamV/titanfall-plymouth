@@ -103,10 +103,20 @@ def build(audio, background=None):
         segments = sorted(segment for segment in segments if not any(
             segment != other and all(on_segment(point,*other) for point in segment)
             for other in segments))
+        horizontal_traces = []
+        for a,b in segments:
+            if a[1] != b[1]: continue
+            starts,ends = [],[]
+            for point in (a,b):
+                radius = max(abs(point[0]-480)/480,abs(point[1]-270)/270)
+                delay = 1-radius
+                starts.append(delay)
+                ends.append(min(1,delay+abs(b[0]-a[0])/2/480))
+            horizontal_traces.append({"endpoints":[a,b],"starts":starts,"ends":ends})
+        trace_by_segment = {tuple(map(tuple,trace["endpoints"])):trace for trace in horizontal_traces}
         line_frames = math.ceil(line_in_duration*fps)+1
         for frame in range(line_frames):
             visible = frame/(line_frames-1)
-            fraction = visible/2
             horizontal, others = [], []
             if frame:
                 for a,b in segments:
@@ -114,8 +124,12 @@ def build(audio, background=None):
                         others.append(f'<line x1="{a[0]}" y1="{a[1]}" x2="{b[0]}" y2="{b[1]}"/>')
                         continue
                     # Only the middle-to-top and middle-to-bottom seams.
-                    for start,end in ((a,b),(b,a)):
-                        x = start[0]+(end[0]-start[0])*fraction
+                    trace = trace_by_segment[(a,b)]
+                    for side,(start,end) in enumerate(((a,b),(b,a))):
+                        delay,finish = trace["starts"][side],trace["ends"][side]
+                        progress = max(0,min(1,(visible-delay)/(finish-delay)))
+                        if progress <= 0: continue
+                        x = start[0]+(end[0]-start[0])*progress/2
                         horizontal.append(f'<line x1="{start[0]}" y1="{start[1]}" x2="{x}" y2="{start[1]}"/>')
             # Preserve the previous screen-centered wipe for all other seams.
             inset_x, inset_y = 480*visible,270*visible
@@ -209,7 +223,7 @@ def build(audio, background=None):
     manifest = {"source":config["source"],"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
                 "source_duration":source_duration,"source_frames":metadata["streams"][0].get("nb_frames"),"fps":fps,
                 "panels":panels,"mode":"inward-pictures-outward","assembly_time":assembly_time,
-                "lines":{"animation":"horizontal-endpoints","frames":line_frames,"segments":segments,**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
+                "lines":{"animation":"horizontal-endpoints","frames":line_frames,"segments":segments,"horizontal_traces":horizontal_traces,**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
                 "preview_duration":duration,"artwork":config["artwork"],
                 "background":({"path":str(background.path),"theme":background.theme,"kind":background.kind,"fit":fit} if background else None)}
     (BUILD/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
