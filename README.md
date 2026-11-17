@@ -1,25 +1,23 @@
 # Titanfall Pilot Link for Plymouth
 
-Two native Plymouth variants use the supplied Marauder emblem and contours sampled from the actual Titan cockpit closure at 28.6–29.4 seconds of the YouTube reference. The theme renders separate chassis, upper-hatch, and lower-plate sprites; gameplay footage is not played during boot.
+A clean, four-panel cockpit animation based on the complete local `closing-pilot.mp4` reference. Both side plates move, followed by the top and bottom plates. The Marauder emblem stays centered on the top plate and travels with it. All lines and the emblem fade away together at the end.
 
-- `titanfall-white`: white background, black lines.
-- `titanfall-black`: black background, white lines.
-- The logo fades in at the center. From 0.6 to 1.4 seconds, the upper hatch slides down and the lower plate slides up.
-- **The logo and all cockpit lines fade out together from 1.65 to 2.45 seconds**, leaving the plain background until boot finishes.
+- `titanfall-white`: white background, black outlines.
+- `titanfall-black`: black background, white outlines.
 
-The panel contours come from the reference video. Their separate vertical sprite translations recreate the visible closing movement; they do not reproduce the game’s full 3D hinge motion or its later display-reopening sequence.
+The artwork is a clean 2D interpretation of the cockpit silhouettes, not an edge-detected texture or gameplay-video playback. Keyframe timings are recorded in `theme/motion.json`. The build uses the full local video's duration (about 5.44 seconds), adds a 0.15-second hold, then fades every panel and the emblem together over 0.8 seconds. No part of the original media is trimmed or overwritten.
 
-The original logo colors are preserved in both variants. Password, question, and status callbacks remain available after the animation fades. Fast boots may end Plymouth before the sequence completes; the theme does not delay startup.
+## Build and review before installing
 
-## Build and watch before installing
-
-Run from this repository. Dependencies: Python 3, FFmpeg, ImageMagick, and Plymouth with its script plugin. CachyOS already has Plymouth configured on the machine inspected for this project.
+Dependencies: Python 3, FFmpeg, ImageMagick, and Plymouth with its script plugin.
 
 ```bash
 python3 scripts/build.py --audio
 ffplay -autoexit build/preview-white.mp4
 ffplay -autoexit build/preview-black.mp4
 ```
+
+The source artwork is in `theme/panels/`. The native Plymouth theme and desktop previews use the same keyframes. The emblem is positioned relative to the top sprite, rather than independently in the center of the display.
 
 Optional desktop previews with the supplied sound clips:
 
@@ -28,68 +26,69 @@ ffplay -autoexit build/preview-white-audio.mp4
 ffplay -autoexit build/preview-black-audio.mp4
 ```
 
-Audio is mixed for desktop previews only: machine noise starts at 0 seconds, Marauder speech at 0.3 seconds, and `the-line.m4a` at 2.6 seconds. Plymouth's script interface has no audio playback API, so the boot themes are silent. The reference was downloaded and visually inspected frame by frame. Audio placement is a custom desktop-preview mix.
+The custom desktop audio mix starts machine noise at 0 seconds, Marauder speech at 0.3 seconds, and `the-line.m4a` at 2.6 seconds. Plymouth's script interface has no audio playback API, so the boot themes are silent.
 
-## Test the actual Plymouth theme without installing
+## Test actual Plymouth without installing
 
-These commands use private user, mount, network, and PID namespaces. They temporarily expose the built theme and preview configuration **inside the preview process only**. They do not change the selected system theme or rebuild the initramfs. Preview logs and images are written under `build/`.
+These commands use private user, mount, network, and PID namespaces. They temporarily expose the built theme and preview configuration inside the preview process only. They do not change the selected system theme or rebuild the initramfs. Logs and screenshots go under `build/`.
 
-An X11 or XWayland `DISPLAY` is required for the visible preview:
+For a visible X11 or XWayland preview:
 
 ```bash
-bash scripts/preview-plymouth.sh white 10
-bash scripts/preview-plymouth.sh black 10
+bash scripts/preview-plymouth.sh white 8
+bash scripts/preview-plymouth.sh black 8
 ```
 
-If user namespaces are restricted, `unshare` will fail and report it. Do not run the commands directly on a live boot daemon as a workaround.
+If user namespaces are restricted, `unshare` reports an error. Do not run the preview commands directly against a live boot daemon as a workaround.
 
-Headless native checks require Xvfb (Arch/CachyOS package `xorg-server-xvfb`):
+For native headless checks, install Xvfb if needed (Arch/CachyOS package `xorg-server-xvfb`), then run:
 
 ```bash
 bash scripts/preview-plymouth.sh --headless white 8
 bash scripts/preview-plymouth.sh --headless black 8
+python3 scripts/check-previews.py
 ```
 
-These save `build/plymouth-<variant>-midpoint.png` during movement, `build/plymouth-<variant>-closed.png` after the panels stop, and `build/plymouth-<variant>-screenshot.png` after the fade. The final image should be completely plain. Logs are overwritten by each run.
+The preview saves a separate `build/plymouth-<variant>-phase-<panel>.png` for left, right, top, and bottom motion, a `closed.png` image once all panels settle, and a final `screenshot.png` after the shared fade. The checker examines the rendered pixels to confirm all four panels move, the emblem remains centered on the moving top plate, and the final frame is completely plain. Logs are overwritten by each run.
 
-Optional authentication rendering check (synthetic password prompt; do not type a real password):
+Optional authentication rendering check:
 
 ```bash
 bash scripts/preview-plymouth.sh --headless --diagnostics white 10
 bash scripts/preview-plymouth.sh --headless --diagnostics black 10
 ```
 
-The diagnostic check saves an additional `build/plymouth-<variant>-prompt.png`, keeps the synthetic dialog visible through the final fade, and clears it when the preview exits. This checks prompt rendering, not encrypted-root unlocking or a real boot.
+This displays a synthetic password prompt; do not enter a real password. It keeps the prompt visible through the final fade and removes it when the preview exits. This checks prompt rendering, not encrypted-root unlocking. Rerun normal headless previews before invoking the pixel checker, because diagnostic final screenshots deliberately contain a prompt.
 
 ## Install only after reviewing
 
-No system installation has been performed. Choose **one** variant below. The following commands install and activate it, then regenerate the initramfs through Plymouth's existing system integration:
+No system installation has been performed. Choose one variant. These commands install it, activate it, and regenerate the initramfs through the existing Plymouth integration:
 
 ```bash
-# Save the current theme name for rollback.
 plymouth-set-default-theme > build/previous-theme.txt
 
-# Choose titanfall-black here for the dark variant instead.
+# Substitute titanfall-black below to select the dark variant.
 sudo cp -r build/themes/titanfall-white /usr/share/plymouth/themes/
 sudo plymouth-set-default-theme -R titanfall-white
 ```
 
-The inspected CachyOS setup already includes `plymouth` in `/etc/mkinitcpio.conf` and `quiet splash` in the running kernel command line. The project does not edit either setting. Check that the regeneration command succeeds before rebooting. A desktop/Xvfb preview cannot validate the firmware framebuffer, encrypted-root flow, or physical monitor layout during boot.
+The inspected CachyOS setup already includes the `plymouth` hook in `/etc/mkinitcpio.conf` and `quiet splash` in the running kernel command line. This project edits neither. Check that regeneration succeeds before rebooting. Desktop previews cannot validate firmware framebuffer behavior, physical monitor layout, or real encrypted-root unlocking. Fast boots may end Plymouth before the animation finishes; the theme does not delay startup.
 
-Restore the previously selected theme and rebuild the initramfs:
+Restore the previous theme:
 
 ```bash
 sudo plymouth-set-default-theme -R "$(cat build/previous-theme.txt)"
 ```
 
-## Files and checkpoints
+## Sources and checkpoints
 
-`theme/` contains the readable script template. `scripts/build.py` generates the two installable directories in `build/themes/` and the preview videos. Generated files are ignored by Git. Each theme uses a handful of small PNG sprites, with no video-frame sequence in the initramfs.
+The five supplied media files remain unchanged. `closing-pilot.mp4` is the sole motion reference used by the build; the incomplete downloaded excerpt from the earlier implementation has been removed. `build/manifest.json` records the original video's duration, frame count, SHA-256, keyframes, and fade timing. Generated assets and previews are ignored by Git.
 
-The supplied media remains unchanged in the repository. `assets/cockpit-close-reference.mp4` is a one-second, silent source excerpt from the linked reference; see `assets/README.md` for provenance. `git log --oneline` lists title-only conventional commits. To inspect any checkpoint without discarding current work:
+Implementation follows the [official Plymouth scripting reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and the installed script-theme examples. The Plymouth skill search found no dedicated skill. A TwelveLabs video-understanding skill was read in full and reviewed but not installed or invoked; reference inspection used local FFmpeg frame sheets instead.
+
+All changes are saved in separate title-only conventional commits. Inspect a checkpoint without discarding work:
 
 ```bash
+git log --oneline
 git switch -c inspect-checkpoint COMMIT_HASH
 ```
-
-Implementation follows the [official Plymouth scripting reference](https://wiki.freedesktop.org/www/Software/Plymouth/Scripts/) and the locally installed script theme. The requested skill search returned no Plymouth-specific skill; no third-party skill was installed. A later revision downloaded the YouTube reference with yt-dlp and inspected timestamped FFmpeg frame sheets. The TwelveLabs video-understanding skill was read in full and reviewed; it describes a hosted API and was not installed or invoked. The animation build runs locally with no hosted video service.
