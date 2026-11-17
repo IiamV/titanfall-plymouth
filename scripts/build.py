@@ -28,6 +28,13 @@ def build(audio, background=None):
             raise SystemExit(f"Missing dependency: {command}")
     config = json.loads(LIGHTING.read_text())
     source = ROOT / config["source"]
+    required = [source]
+    if audio:
+        required += [ROOT/name for name in ("machine-noise.m4a", "marauder-corps.m4a", "the-line.m4a")]
+    missing = [path.name for path in required if not path.is_file()]
+    if missing:
+        raise SystemExit("Missing local source media: "+", ".join(missing)+
+                         ". Supply your own files or restore the local originals stash; see README.md.")
     metadata = json.loads(subprocess.check_output([
         "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
         "format=duration:stream=nb_frames", "-of", "json", str(source)], text=True))
