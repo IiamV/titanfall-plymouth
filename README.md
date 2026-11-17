@@ -22,7 +22,7 @@ These demos use the installed WarGames theme's packaged SDDM screenshot. The GIF
 
 Five **fixed** cockpit shapes cut the selected SDDM screenshot or wallpaper into an expanded top header, left and right sides, a middle panel, and the narrow bottom panel. Side-to-top seams are continuous diagonals; the middle-to-top seam stays horizontal. Only internal seams are drawn; there is no outer screen border or logo.
 
-- The thicker outlines stay in place. Only the two horizontal seams between the middle panel and the top/bottom panels draw from their endpoints toward their midpoint, then retract from their midpoint toward their endpoints. All diagonal and vertical seams retain the screen-centered inward/outward wipe.
+- The thicker outlines stay in place. Only the two horizontal seams between the middle panel and the top/bottom panels draw from their endpoints toward their midpoint, then retract from their midpoint toward their endpoints. Each horizontal seam waits until the adjoining wipe reaches its endpoints, then draws at the wipe’s horizontal speed. The shorter bottom seam completes first; the exit reverses this sequence. All diagonal and vertical seams retain the screen-centered inward/outward wipe.
 - The middle picture only fades in, with zero movement.
 - Other pictures mostly fade, with small movement **inside their fixed masks**: 24 pixels on the sides, 12 on top, 6 on the bottom at the reference resolution.
 - Top and bottom finish in 0.22 and 0.20 seconds; side fades take 0.55 seconds and the middle fade takes 0.70 seconds.
