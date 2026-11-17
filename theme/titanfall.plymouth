@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=Titanfall Pilot Link
-Description=Clean four-panel cockpit closure with a top-panel Marauder emblem and shared final fade
+Description=Generated full-screen stationary cockpit panels with sequential illumination and a shared logo fade
 ModuleName=script
 
 [script]

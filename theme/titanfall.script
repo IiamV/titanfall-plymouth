@@ -4,21 +4,22 @@ Window.SetBackgroundTopColor(@BG@, @BG@, @BG@);
 Window.SetBackgroundBottomColor(@BG@, @BG@, @BG@);
 width = Window.GetWidth();
 height = Window.GetHeight();
-# All four plate silhouettes are clean vector artwork, without texture extraction.
-scale = Math.Min(width / 960, height / 540);
+# Every full-canvas panel stays fixed; illumination changes opacity only.
+scale = Math.Max(width / 960, height / 540);
 origin_x = Window.GetX() + (width - 960 * scale) / 2;
 origin_y = Window.GetY() + (height - 540 * scale) / 2;
-left = Sprite(Image("left.png").Scale(250 * scale, 540 * scale));
-right = Sprite(Image("right.png").Scale(250 * scale, 540 * scale));
-bottom = Sprite(Image("bottom.png").Scale(960 * scale, 180 * scale));
-top = Sprite(Image("top.png").Scale(960 * scale, 180 * scale));
-left.SetZ(1);
-right.SetZ(1);
-bottom.SetZ(2);
-top.SetZ(3);
-logo_size = Math.Int(92 * scale);
+left = Sprite(Image("left.png").Scale(960 * scale, 540 * scale));
+right = Sprite(Image("right.png").Scale(960 * scale, 540 * scale));
+bottom = Sprite(Image("bottom.png").Scale(960 * scale, 540 * scale));
+top = Sprite(Image("top.png").Scale(960 * scale, 540 * scale));
+left.SetPosition(origin_x, origin_y, 1);
+right.SetPosition(origin_x, origin_y, 1);
+bottom.SetPosition(origin_x, origin_y, 2);
+top.SetPosition(origin_x, origin_y, 3);
+logo_size = Math.Int(128 * scale);
 logo = Sprite(Image("marauder-logo.png").Scale(logo_size, logo_size));
-logo.SetZ(4);
+logo.SetPosition(origin_x + 480 * scale - logo_size / 2,
+                 origin_y + 234 * scale - logo_size / 2, 4);
 fun sample(keys, seconds)
 {
     if (seconds <= keys[0][0]) return keys[0][1];
@@ -84,19 +85,12 @@ tick = 0;
 fun refresh()
 {
     seconds = tick / fps;
-    left.SetPosition(origin_x + sample(motion["left"], seconds) * scale, origin_y, 1);
-    right.SetPosition(origin_x + (710 + sample(motion["right"], seconds)) * scale, origin_y, 1);
-    bottom.SetPosition(origin_x, origin_y + (360 + sample(motion["bottom"], seconds)) * scale, 2);
-    top.SetPosition(origin_x, origin_y + sample(motion["top"], seconds) * scale, 3);
-    # The emblem belongs to the top plate; it never has independent screen motion.
-    logo.SetPosition(top.GetX() + 480 * scale - logo_size / 2,
-                     top.GetY() + 89 * scale - logo_size / 2, 4);
     fade = 1 - Math.Clamp((seconds - fade_start) / fade_duration, 0, 1);
-    left.SetOpacity(fade);
-    right.SetOpacity(fade);
-    bottom.SetOpacity(fade);
-    top.SetOpacity(fade);
-    logo.SetOpacity(fade);
+    left.SetOpacity(sample(lighting["left"], seconds) * fade);
+    right.SetOpacity(sample(lighting["right"], seconds) * fade);
+    bottom.SetOpacity(sample(lighting["bottom"], seconds) * fade);
+    top.SetOpacity(sample(lighting["top"], seconds) * fade);
+    logo.SetOpacity(sample(lighting["top"], seconds) * fade);
     tick++;
 }
 Plymouth.SetRefreshRate(fps);
