@@ -27,7 +27,7 @@ def probe_picture(part, phase, theme, panel, ink, background):
             local=((y-y0)*width+x-x0)*4
             target=(y*W+x)*3
             if face[local+3] != 255: continue
-            pairs += [(face[local+c]-background,phase[target+c]-background) for c in range(3)]
+            pairs += [(face[local+c]-background[c],phase[target+c]-background[c]) for c in range(3)]
         denominator = sum(source*source for source,_ in pairs)
         alpha = sum(source*actual for source,actual in pairs)/denominator if denominator else 0
         error = sum(abs(actual-alpha*source) for source,actual in pairs)/len(pairs) if pairs else 999
@@ -46,14 +46,14 @@ def line_strength(frame,photo,ink,foreground):
     for point,alpha in enumerate(ink):
         if alpha < 250: continue
         i=point*3
-        channel=max(range(3),key=lambda c:abs(foreground-photo[i+c]))
-        delta=foreground-photo[i+channel]
+        channel=max(range(3),key=lambda c:abs(foreground[c]-photo[i+c]))
+        delta=foreground[channel]-photo[i+channel]
         if abs(delta)>80: values[point]=(frame[i+channel]-photo[i+channel])/delta
     return values
 
 
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--variant",choices=["black","white"])
+parser.add_argument("--variant",choices=["black","white","custom"])
 parser.add_argument("--check-texture-motion",action="store_true",help="fit fading and internal motion using the coordinate test picture")
 args=parser.parse_args()
 manifest=json.loads((ROOT/"build/manifest.json").read_text())
@@ -69,15 +69,17 @@ assert sorted(panels,key=lambda name:panels[name]["keys"][-2][0]) == light_order
 assert panels["right"]["keys"][-1][0] <= panels["top"]["keys"][-2][0], "Top lights before the left-to-right sweep finishes"
 assert panels["top"]["keys"][-1][0] <= panels["bottom"]["keys"][-2][0], "Bottom lights before the top finishes"
 for part in ("top","bottom"):
-    assert panels[part]["keys"][-1][0]-panels[part]["keys"][-2][0] < 0.3, "Top/bottom animation is not faster"
+    assert panels[part]["keys"][-1][0]-panels[part]["keys"][-2][0] < panels["left"]["keys"][-1][0]-panels["left"]["keys"][-2][0], "Top/bottom animation is not faster"
 assert manifest["lines"]["exit_start"] >= manifest["assembly_time"]
 assert min(p["keys"][-2][0] for p in panels.values()) >= manifest["lines"]["entrance_end"]
-for variant in ([args.variant] if args.variant else ["black","white"]):
+for variant in ([args.variant] if args.variant else list(manifest["palettes"])):
     theme=ROOT/f"build/themes/titanfall-{variant}"
     prefix=ROOT/f"build/plymouth-{variant}"
-    bg,fg=(0,255) if variant=="black" else (255,0)
+    def color(value): return tuple(int(value[i:i+2],16) for i in (1,3,5))
+    bg=color(manifest["palettes"][variant]["panel"])
+    fg=color(manifest["palettes"][variant]["lines"])
     photo=pixels(theme/"assembled.png")
-    if manifest["background"] and manifest["background"]["kind"] == "packaged theme screenshot":
+    if variant=="white" and manifest["background"] and manifest["background"]["kind"] == "packaged theme screenshot":
         assert photo == pixels(ROOT/"build/themes/titanfall-black/assembled.png"), "Palette-colored side padding remains in SDDM picture"
 
     line=pixels(theme/"lines.png","rgba")
@@ -86,7 +88,7 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
     for x in (0,W-1):
         assert sum(ink[y*W+x]>0 for y in range(H))<H*0.1, "Outer side border remains"
     initial=pixels(str(prefix)+"-background.png")
-    active=[point for point in range(W*H) if any(initial[point*3+c]!=bg for c in range(3))]
+    active=[point for point in range(W*H) if any(initial[point*3+c]!=bg[c] for c in range(3))]
     assert not active, "Picture or outlines visible before entrance"
     masks={part:pixels(theme/f"mask-{part}.png") for part in panels}
     assert all(any(mask[i] for mask in masks.values()) for i in range(0,W*H*3,3)), "Panel layout has a hole"
@@ -113,7 +115,7 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
             probe_picture(part,pixels(str(prefix)+f"-phase-{part}.png"),theme,panel,ink,bg)
     # Every nonhorizontal stroke keeps the screen-centered wipe. Probe
     # full stroke pixels away from joints and the two horizontal seams.
-    for frame in (5,13):
+    for frame in (round((manifest["lines"]["frames"]-1)*0.24),round((manifest["lines"]["frames"]-1)*0.62)):
         alpha=pixels(theme/f"lines-{frame}.png","rgba")[3::4]
         threshold=1-frame/(manifest["lines"]["frames"]-1)
         for y in range(15,H-15):
@@ -126,7 +128,7 @@ for variant in ([args.variant] if args.variant else ["black","white"]):
     entrance=[]
     for label in ("entrance-early","entrance-late","lines-ready"):
         frame=pixels(str(prefix)+f"-{label}.png")
-        changed={point for point in range(W*H) if abs(frame[point*3]-bg)>20}
+        changed={point for point in range(W*H) if max(abs(frame[point*3+c]-bg[c]) for c in range(3))>20}
         assert changed and all(ink[point] for point in changed), "Picture appears during line entrance or outlines move"
         entrance.append(changed)
     # Rasterized diagonal endpoints can differ by a few antialias pixels.
