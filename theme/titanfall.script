@@ -11,10 +11,12 @@ origin_x = Window.GetX(); origin_y = Window.GetY();
 window_x = origin_x; window_y = origin_y;
 left_original = Image("left.png"); right_original = Image("right.png");
 bottom_original = Image("bottom.png"); top_original = Image("top.png");
-wallpaper_sprite = Sprite();
-wallpaper_sprite.SetZ(-100);
-if (background_present) wallpaper_original = Image("background.png");
+assembled_original = Image("assembled.png");
+assembled_sprite = Sprite(); assembled_sprite.SetZ(-100); assembled_sprite.SetOpacity(0);
+left_face_original = Image("face-left.png"); right_face_original = Image("face-right.png");
+bottom_face_original = Image("face-bottom.png"); top_face_original = Image("face-top.png");
 left = Sprite(); right = Sprite(); bottom = Sprite(); top = Sprite();
+left_face = Sprite(); right_face = Sprite(); bottom_face = Sprite(); top_face = Sprite();
 fun fit_panel(image, rectangle)
 {
     # Scale shared endpoints so adjacent panels cannot leave rounding gaps.
@@ -32,18 +34,12 @@ fun resize_layout()
     global.right_image = fit_panel(right_original, bounds["right"]);
     global.bottom_image = fit_panel(bottom_original, bounds["bottom"]);
     global.top_image = fit_panel(top_original, bounds["top"]);
-    if (background_present)
-    {
-        if (background_fit == "contain")
-            wallpaper_scale = Math.Min(width / wallpaper_original.GetWidth(), height / wallpaper_original.GetHeight());
-        else
-            wallpaper_scale = Math.Max(width / wallpaper_original.GetWidth(), height / wallpaper_original.GetHeight());
-        wallpaper_width = Math.Int(wallpaper_original.GetWidth() * wallpaper_scale + 0.999);
-        wallpaper_height = Math.Int(wallpaper_original.GetHeight() * wallpaper_scale + 0.999);
-        wallpaper_sprite.SetImage(wallpaper_original.Scale(wallpaper_width, wallpaper_height));
-        wallpaper_sprite.SetPosition(origin_x + (width - wallpaper_width) / 2,
-                                     origin_y + (height - wallpaper_height) / 2, -100);
-    }
+    global.left_face_image = fit_panel(left_face_original, bounds["left"]);
+    global.right_face_image = fit_panel(right_face_original, bounds["right"]);
+    global.bottom_face_image = fit_panel(bottom_face_original, bounds["bottom"]);
+    global.top_face_image = fit_panel(top_face_original, bounds["top"]);
+    assembled_sprite.SetImage(assembled_original.Scale(width, height));
+    assembled_sprite.SetPosition(origin_x, origin_y, -100);
     if (panel)
     {
         panel.SetImage(Image("panel.png").Scale(width, Math.Max(100, height * 0.23)));
@@ -51,27 +47,23 @@ fun resize_layout()
     }
     if (message_sprite) message_sprite.SetPosition(origin_x + 20, origin_y + height - 45, 105);
 }
-fun reveal(sprite, image, way, progress, x, y, z, fade)
+fun slide(sprite, image, way, progress, x, y, z, opacity)
 {
     sprite.SetOpacity(0);
-    if (progress <= 0) return;
-    image_width = image.GetWidth();
-    image_height = image.GetHeight();
-    crop_x = 0; crop_y = 0;
-    crop_width = image_width; crop_height = image_height;
-    if (way == "right" || way == "left")
-    {
-        crop_width = Math.Max(1, Math.Int(image_width * progress));
-        if (way == "left") crop_x = image_width - crop_width;
-    }
-    else
-    {
-        crop_height = Math.Max(1, Math.Int(image_height * progress));
-        if (way == "up") crop_y = image_height - crop_height;
-    }
-    sprite.SetImage(image.Crop(crop_x, crop_y, crop_width, crop_height));
-    sprite.SetPosition(x + crop_x, y + crop_y, z);
-    sprite.SetOpacity(fade);
+    if (progress <= 0 || opacity <= 0) return;
+    offset_x = 0; offset_y = 0;
+    if (way == "right") offset_x = -image.GetWidth() * (1 - progress);
+    if (way == "left") offset_x = image.GetWidth() * (1 - progress);
+    if (way == "down") offset_y = -image.GetHeight() * (1 - progress);
+    if (way == "up") offset_y = image.GetHeight() * (1 - progress);
+    sprite.SetImage(image);
+    sprite.SetPosition(x + Math.Int(offset_x), y + Math.Int(offset_y), z);
+    sprite.SetOpacity(opacity);
+}
+fun show_panel(face, outline, face_image, outline_image, way, progress, x, y, z, fade, complete)
+{
+    slide(face, face_image, way, progress, x, y, z, !complete);
+    slide(outline, outline_image, way, progress, x, y, z + 10, fade);
 }
 fun sample(keys, seconds)
 {
@@ -141,14 +133,16 @@ fun refresh()
         window_x != Window.GetX() || window_y != Window.GetY()) resize_layout();
     seconds = tick / fps;
     fade = 1 - Math.Clamp((seconds - fade_start) / fade_duration, 0, 1);
-    reveal(left, left_image, direction["left"], sample(lighting["left"], seconds),
-           origin_x + Math.Int(bounds["left"][0] * scale_x), origin_y + Math.Int(bounds["left"][1] * scale_y), 1, fade);
-    reveal(right, right_image, direction["right"], sample(lighting["right"], seconds),
-           origin_x + Math.Int(bounds["right"][0] * scale_x), origin_y + Math.Int(bounds["right"][1] * scale_y), 1, fade);
-    reveal(bottom, bottom_image, direction["bottom"], sample(lighting["bottom"], seconds),
-           origin_x + Math.Int(bounds["bottom"][0] * scale_x), origin_y + Math.Int(bounds["bottom"][1] * scale_y), 2, fade);
-    reveal(top, top_image, direction["top"], sample(lighting["top"], seconds),
-           origin_x + Math.Int(bounds["top"][0] * scale_x), origin_y + Math.Int(bounds["top"][1] * scale_y), 3, fade);
+    complete = seconds >= assembly_time;
+    assembled_sprite.SetOpacity(complete);
+    show_panel(left_face, left, left_face_image, left_image, direction["left"], sample(lighting["left"], seconds),
+               origin_x + Math.Int(bounds["left"][0] * scale_x), origin_y + Math.Int(bounds["left"][1] * scale_y), 1, fade, complete);
+    show_panel(right_face, right, right_face_image, right_image, direction["right"], sample(lighting["right"], seconds),
+               origin_x + Math.Int(bounds["right"][0] * scale_x), origin_y + Math.Int(bounds["right"][1] * scale_y), 2, fade, complete);
+    show_panel(bottom_face, bottom, bottom_face_image, bottom_image, direction["bottom"], sample(lighting["bottom"], seconds),
+               origin_x + Math.Int(bounds["bottom"][0] * scale_x), origin_y + Math.Int(bounds["bottom"][1] * scale_y), 3, fade, complete);
+    show_panel(top_face, top, top_face_image, top_image, direction["top"], sample(lighting["top"], seconds),
+               origin_x + Math.Int(bounds["top"][0] * scale_x), origin_y + Math.Int(bounds["top"][1] * scale_y), 4, fade, complete);
     tick++;
 }
 Plymouth.SetRefreshRate(fps);
