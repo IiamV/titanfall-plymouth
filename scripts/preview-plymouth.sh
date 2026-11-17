@@ -88,6 +88,7 @@ capture() {
         magick import -window root "$capture_prefix-$1.png"
     fi
 }
+capture background
 sleep 0.65
 capture phase-left
 sleep 0.45

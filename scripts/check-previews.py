@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check fixed panel geometry, full coverage, sequential lighting, and final fade."""
 import json
+import argparse
 from pathlib import Path
 import subprocess
 
@@ -15,18 +16,18 @@ def pixels(path):
     return data
 
 
-def active(data, background):
+def active(data, baseline):
     return {i for i in range(0, len(data), 3)
-            if max(abs(channel - background) for channel in data[i:i+3]) > 8}
+            if max(abs(data[i+c] - baseline[i+c]) for c in range(3)) > 8}
 
 
-def emblem(data):
+def emblem(data, baseline):
     colored = set()
     for y in range(145, 320):
         for x in range(390, 570):
             i = (y * WIDTH + x) * 3
             rgb = data[i:i+3]
-            if max(rgb) - min(rgb) > 24:
+            if max(rgb) - min(rgb) > 24 and any(abs(data[i+c] - baseline[i+c]) > 8 for c in range(3)):
                 colored.add((x, y))
     assert colored, "The central/top-panel emblem is missing"
     center_x = (min(x for x, _ in colored) + max(x for x, _ in colored)) / 2
@@ -36,10 +37,13 @@ def emblem(data):
     return colored
 
 
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--variant", choices=["white", "black"], help="check one palette, useful when matching image contrast")
+args = parser.parse_args()
 manifest = json.loads((ROOT / "build/manifest.json").read_text())
 assert manifest["mode"] == "directional-light-up"
-for variant in ("white", "black"):
-    background = 255 if variant == "white" else 0
+for variant in ([args.variant] if args.variant else ["white", "black"]):
+    baseline = pixels(ROOT / f"build/plymouth-{variant}-background.png")
     masks = {name: pixels(ROOT / f"build/themes/titanfall-{variant}/mask-{name}.png")
              for name in ("left", "right", "top", "bottom")}
     assert all(any(mask[i] for mask in masks.values())
@@ -49,10 +53,10 @@ for variant in ("white", "black"):
     shared_x = sorted({x for x, y in top_polygon if y == bottom_bounds[1]})
     assert shared_x == [bottom_bounds[0], bottom_bounds[0] + bottom_bounds[2]], "Bottom width differs from the middle panel"
     closed = pixels(ROOT / f"build/plymouth-{variant}-closed.png")
-    final_geometry = active(closed, background)
+    final_geometry = active(closed, baseline)
     for part, mask in masks.items():
         phase = pixels(ROOT / f"build/plymouth-{variant}-phase-{part}.png")
-        lit = active(phase, background)
+        lit = active(phase, baseline)
         assert sum(bool(mask[i]) for i in lit) > 30, f"{variant}: {part} never lights up"
         # Illumination may change intensity, but must not create edges at new
         # coordinates. This fails if panels slide or rotate into their positions.
@@ -65,9 +69,19 @@ for variant in ("white", "black"):
                                 for i in own_lit)
             assert full_strength / len(own_lit) > 0.8, "Light-up is a uniform opacity fade instead of a sliding reveal"
         if part == "top":
-            assert emblem(phase) == emblem(closed), f"{variant}: emblem position changed"
-    for x, y in emblem(closed):
+            assert emblem(phase, baseline) == emblem(closed, baseline), f"{variant}: emblem position changed"
+    for x, y in emblem(closed, baseline):
         assert masks["top"][(y * WIDTH + x) * 3], "Emblem falls outside the main/top panel"
+    if manifest.get("background"):
+        candidates = []
+        for i in range(0, len(baseline), 3):
+            rgb = baseline[i:i+3]
+            x, y = (i//3) % WIDTH, (i//3) // WIDTH
+            if max(rgb)-min(rgb) > 24 and not (410 < x < 550 and 160 < y < 305):
+                candidates.append(i)
+        if len(candidates) > 100:
+            preserved = sum(closed[i:i+3] == baseline[i:i+3] for i in candidates)
+            assert preserved / len(candidates) > 0.75, "Panel faces are obscuring the background"
     final = pixels(ROOT / f"build/plymouth-{variant}-screenshot.png")
-    assert min(final) == max(final) == background, f"{variant}: final frame is not plain"
+    assert final == baseline, f"{variant}: background is not restored after the final fade"
     print(f"{variant}: full coverage, matching bottom width, sliding reveal, fixed emblem, final fade verified")
