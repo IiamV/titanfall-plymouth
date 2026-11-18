@@ -10,10 +10,12 @@ import shutil
 import subprocess
 from sddm_background import SDDMImage, SDDMImageNotFound, find_sddm_image
 from wallpaper import WallpaperNotFound, find_wallpaper
+from images import validate_image
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 LIGHTING = ROOT / "theme/lighting.json"
+DEFAULT_SPEED = 1.25
 
 
 def run(*args):
@@ -34,10 +36,15 @@ def hex_color(value):
 
 def animation_speed(value):
     try: speed=float(value)
-    except ValueError: raise argparse.ArgumentTypeError("Speed must be a number from 0.25 to 4")
+    except (ValueError,TypeError): raise argparse.ArgumentTypeError("Speed must be a number from 0.25 to 4")
     if not math.isfinite(speed) or not 0.25 <= speed <= 4:
-        raise argparse.ArgumentTypeError("Speed must be from 0.25 to 4; 1 is normal, 2 is twice as fast")
+        raise argparse.ArgumentTypeError("Speed must be from 0.25 to 4; the default is 1.25, lower is slower")
     return speed
+
+
+def image_argument(value):
+    try: return validate_image(value)
+    except ValueError as error: raise argparse.ArgumentTypeError(str(error)) from error
 
 
 def rgb(color):
@@ -60,7 +67,7 @@ def audio_tempo(speed):
     return ",".join(filters)
 
 
-def build(audio, background=None, panel_color=None, line_color=None, speed=1):
+def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAULT_SPEED):
     for command in ("ffmpeg", "ffprobe", "magick"):
         if not shutil.which(command):
             raise SystemExit(f"Missing dependency: {command}")
@@ -277,9 +284,9 @@ if __name__ == "__main__":
     parser.add_argument("--audio",action="store_true",help="mix local audio files into MP4 previews")
     parser.add_argument("--panel-color",type=hex_color,help="hex backdrop/solid-panel color; creates the custom variant")
     parser.add_argument("--line-color",type=hex_color,help="hex seam color; creates the custom variant")
-    parser.add_argument("--speed",type=animation_speed,default=1,help="animation speed multiplier, 0.25..4 (default: 1)")
+    parser.add_argument("--speed",type=animation_speed,default=DEFAULT_SPEED,help="animation speed multiplier, 0.25..4 (default: 1.25; lower is slower)")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--background",type=Path,help="picture to cut into the fixed panel shapes")
+    group.add_argument("--background",type=image_argument,help="picture to cut into the fixed panel shapes")
     group.add_argument("--wallpaper",action="store_true",help="discover a user wallpaper or a standard-folder fallback")
     group.add_argument("--sddm-background",action="store_true")
     group.add_argument("--sddm-preview",action="store_true")

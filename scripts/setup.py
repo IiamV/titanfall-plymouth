@@ -17,7 +17,8 @@ import tty
 import unicodedata
 import uuid
 
-from build import animation_speed, hex_color
+from build import DEFAULT_SPEED, animation_speed, hex_color
+from images import validate_image
 from sddm_background import SDDMImageNotFound, find_sddm_image
 from wallpaper import WallpaperNotFound, find_wallpaper
 
@@ -103,9 +104,7 @@ def confirm(title):
 
 
 def image_path(value):
-    path=Path(os.path.expandvars(value.strip('\"\''))).expanduser().resolve()
-    if not path.is_file(): raise ValueError(f'Image not found: {path}')
-    return str(path)
+    return str(validate_image(value))
 
 
 def collect_options():
@@ -155,7 +154,8 @@ def collect_options():
         line_color=ask('Line hex color (or auto)','auto',lambda value:'auto' if value.lower()=='auto' else hex_color(value))
         color_args=['--panel-color',panel_color]
         if line_color!='auto': color_args+=['--line-color',line_color]
-    speed=ask('Animation speed (1 normal, 1.25 faster, 0.75 slower)','1',animation_speed)
+    speed_choice=choose('Animation speed',['Default — 1.25×','Slower — 1×','Slower — 0.75×','Custom speed'])
+    speed=(DEFAULT_SPEED,1,0.75)[speed_choice] if speed_choice<3 else ask('Custom speed (0.25–4; lower is slower)',str(DEFAULT_SPEED),animation_speed)
     command=[sys.executable,str(ROOT/'scripts/build.py'),*image_args,*color_args,'--speed',str(speed)]
     return {'variant':variant,'picture':image,'panel_color':panel_color,'line_color':line_color,'speed':speed,'command':command}
 
