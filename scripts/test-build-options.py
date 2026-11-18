@@ -19,9 +19,9 @@ class BuildOptionsTest(unittest.TestCase):
                 hex_color(value)
 
     def test_speed_validation(self):
-        for value in ('0.25','1','1.25','4'):
+        for value in ('0.25','1','1.25','4',' 1.25 ','1e0'):
             self.assertEqual(animation_speed(value),float(value))
-        for value in ('0','-1','4.1','nan','inf','fast'):
+        for value in ('0','-1','4.1','0.24999','4.0001','nan','NaN','inf','-inf','1e309','-1e309','fast','','1,25','1.25x',None):
             with self.subTest(value=value),self.assertRaises(argparse.ArgumentTypeError):
                 animation_speed(value)
 

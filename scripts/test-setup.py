@@ -94,7 +94,7 @@ class SetupTest(unittest.TestCase):
         self.assertTrue((self.root/setup.read_history()[-1]['backup']).is_dir())
 
     def test_optional_solid_custom_colors_and_speed(self):
-        with patch.object(setup,'choose',side_effect=[2,2]),patch('builtins.input',side_effect=['','#abc','auto','1.25']):
+        with patch.object(setup,'choose',side_effect=[2,2,3]),patch('builtins.input',side_effect=['','#abc','auto','1.25']):
             options=setup.collect_options()
         self.assertIsNone(options['picture'])
         self.assertEqual(options['panel_color'],'#aabbcc')
@@ -104,7 +104,7 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(options['variant'],'custom')
 
     def test_menu_shows_exact_sddm_and_picture_paths(self):
-        with patch.object(setup,'choose',side_effect=[1,0]) as menu,patch('builtins.input',return_value='1'):
+        with patch.object(setup,'choose',side_effect=[1,0,0]) as menu,patch('builtins.input',return_value='1'):
             options=setup.collect_options()
         labels=menu.call_args_list[0].args[1]
         picture=str(self.root/'docs/demo/wallpaper.svg')
@@ -113,37 +113,52 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(options['command'][options['command'].index('--background')+1],picture)
 
     def test_missing_wallpaper_allows_custom_fallback(self):
-        with patch.object(setup,'find_wallpaper',side_effect=WallpaperNotFound('missing wallpaper')),patch.object(setup,'choose',side_effect=[1,2,0]) as menu,patch('builtins.input',side_effect=['','1']):
+        with patch.object(setup,'find_wallpaper',side_effect=WallpaperNotFound('missing wallpaper')),patch.object(setup,'choose',side_effect=[1,2,0,0]) as menu,patch('builtins.input',side_effect=['','1']):
             options=setup.collect_options()
         self.assertEqual(menu.call_args_list[0].args[1][1],'Picture — not found')
         self.assertIsNone(options['picture'])
 
     def test_default_folder_is_marked_as_fallback(self):
         picture=self.root/'docs/demo/wallpaper.svg'
-        with patch.object(setup,'find_wallpaper',return_value=Wallpaper(picture,'default wallpaper folder','fallback')),patch.object(setup,'choose',side_effect=[1,0]) as menu,patch('builtins.input',return_value='1'):
+        with patch.object(setup,'find_wallpaper',return_value=Wallpaper(picture,'default wallpaper folder','fallback')),patch.object(setup,'choose',side_effect=[1,0,0]) as menu,patch('builtins.input',return_value='1'):
             options=setup.collect_options()
         self.assertIn('— default-folder fallback',menu.call_args_list[0].args[1][1])
         self.assertEqual(options['picture'],str(picture))
 
     def test_sddm_build_uses_the_displayed_image(self):
-        with patch.object(setup,'choose',side_effect=[0,0]),patch('builtins.input',return_value='1'):
+        with patch.object(setup,'choose',side_effect=[0,0,0]),patch('builtins.input',return_value='1'):
             options=setup.collect_options()
         self.assertEqual(options['picture'],str(self.sddm))
         self.assertEqual(options['command'][options['command'].index('--background')+1],str(self.sddm))
 
     def test_wallpaper_path_is_one_argument(self):
         wallpaper=self.root/'my wallpaper $(no shell).png'
-        wallpaper.write_bytes(b'example')
-        with patch.object(setup,'choose',side_effect=[2,0]),patch('builtins.input',side_effect=[str(wallpaper),'1']):
+        wallpaper.write_bytes(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cch\x98\xb0\x00\x00\x03D\x01\xb1z\xd76\x14\x00\x00\x00\x00IEND\xaeB`\x82')
+        with patch.object(setup,'choose',side_effect=[2,0,0]),patch('builtins.input',side_effect=[str(wallpaper),'1']):
             options=setup.collect_options()
         self.assertEqual(options['command'][options['command'].index('--background')+1],str(wallpaper))
         self.assertEqual(options['variant'],'black')
 
     def test_missing_sddm_allows_solid_fallback(self):
-        with patch.object(setup,'choose',side_effect=[0,2,1]),patch.object(setup,'find_sddm_image',side_effect=SDDMImageNotFound('missing image')),patch('builtins.input',side_effect=['','1']):
+        with patch.object(setup,'choose',side_effect=[0,2,1,0]),patch.object(setup,'find_sddm_image',side_effect=SDDMImageNotFound('missing image')),patch('builtins.input',side_effect=['','1']):
             options=setup.collect_options()
         self.assertIsNone(options['picture'])
         self.assertEqual(options['variant'],'white')
+
+    def test_speed_menu_defaults_and_slower_presets(self):
+        for choice,expected in ((0,1.25),(1,1),(2,0.75)):
+            with self.subTest(choice=choice),patch.object(setup,'choose',side_effect=[1,0,choice]),patch('builtins.input'):
+                options=setup.collect_options()
+            self.assertEqual(options['speed'],expected)
+            self.assertEqual(float(options['command'][-1]),expected)
+
+    def test_custom_speed_retries_invalid_input(self):
+        with patch.object(setup,'choose',side_effect=[1,0,3]),patch('builtins.input',side_effect=['nan','0','4.01','1,25','0.5']):
+            self.assertEqual(setup.collect_options()['speed'],0.5)
+
+    def test_custom_picture_retries_missing_file(self):
+        with patch.object(setup,'choose',side_effect=[2,0,0]),patch('builtins.input',side_effect=[str(self.root/'missing.png'),'']):
+            self.assertIsNone(setup.collect_options()['picture'])
 
     def test_preview_only_never_offers_install(self):
         options={'variant':'custom','picture':None,'panel_color':'#123456','line_color':'auto','speed':1,'command':['python3','build.py']}
