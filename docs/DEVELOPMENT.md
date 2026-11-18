@@ -14,7 +14,9 @@ Changing a wallpaper, palette, or speed requires rebuilding, copying the generat
 
 ## Interactive CLI
 
-Run `./install.sh`. Arrow keys (or j/k and Enter) choose options in a terminal; numbered menus work with redirected input. The picture menu has three choices: **SDDM**, **Picture**, and **Custom**. SDDM shows the detected screenshot path; Picture shows a discovered user wallpaper or a clearly marked default-folder fallback. The build uses the exact displayed path. Custom prompts for another file; blank input selects solid panels. Missing SDDM images are marked as not found and reported when selected. Custom colors and speed use the same validation as the build CLI.
+Run `./install.sh`. Arrow keys (or j/k and Enter) choose options in a terminal; numbered menus work with redirected input. The picture menu has three choices: **SDDM**, **Picture**, and **Custom**. SDDM shows the detected screenshot path; Picture shows a discovered user wallpaper or a clearly marked default-folder fallback. The build uses the exact displayed path. Custom prompts for another file; blank input selects solid panels. Missing SDDM images are marked as not found and reported when selected. Custom colors and speed use the same validation as the build CLI. The default is 1.25×; slower presets are 1× and 0.75×. Custom speed accepts finite numbers from 0.25 to 4 and retries invalid input. Blank custom-speed input uses the default.
+
+Custom picture validation expands `~` and environment variables, accepts quoted paths and local `file://` URIs, checks that a readable image file exists, and decodes its first frame with ImageMagick. Missing files, directories, empty/corrupt files, unsupported formats, remote URLs, control characters, and unmatched quotes are rejected. Decoder validation has a five-second timeout. Blank input at the optional custom-picture prompt still selects solid panels.
 
 `./install.sh --preview-only` builds and offers the video preview without offering system installation. The settings and repeatable build command are saved in `build/setup-options.json`; build output goes to `build/setup-build.log`.
 
@@ -43,6 +45,7 @@ Format references: [Hyprpaper](https://wiki.hypr.land/hypr-ecosystem/user/hyprpa
 The preview runs in private user, mount, network, and PID namespaces. It does not select a system theme or modify the host daemon configuration. Headless previews require Xvfb and ImageMagick. Visible previews require X11 or XWayland.
 
 ```bash
+python3 scripts/test-images.py
 python3 scripts/test-wallpaper.py
 python3 scripts/test-setup.py
 python3 scripts/test-build-options.py

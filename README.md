@@ -10,6 +10,8 @@ Cockpit panels light up **left → middle → right → top → bottom**, reveal
 
 [Black with sound](docs/demo/black-audio.mp4) · [White with sound](docs/demo/white-audio.mp4)
 
+Both use the Maldives SDDM greeter at the default **1.25×** speed ([credits](docs/demo/ATTRIBUTION.md)).
+
 **Wallpaper with cyan lines and 1.25× speed**
 
 ![Wallpaper panel animation](docs/demo/wallpaper.gif)
@@ -26,7 +28,7 @@ cd titanfall-plymouth
 ./install.sh
 ```
 
-Use arrow keys and Enter to choose **SDDM**, **Picture**, or **Custom**. SDDM and Picture show the exact image path beside the choice. Picture detects your desktop/WM wallpaper, then checks standard wallpaper folders (marked as a fallback). Custom asks for a path (leave it blank for no picture). Then choose colors and speed. The wizard builds a preview and offers installation afterward.
+Use arrow keys and Enter to choose **SDDM**, **Picture**, or **Custom**. SDDM and Picture show the exact image path beside the choice. Picture detects your desktop/WM wallpaper, then checks standard wallpaper folders (marked as a fallback). Custom asks for a path (leave it blank for no picture). Then choose colors and speed: **1.25× default**, **1× slower**, **0.75× slower**, or Custom. The wizard builds a preview and offers installation afterward.
 
 - Test without installation: `./install.sh --preview-only`
 - Restore the previous theme: `./install.sh --restore`
@@ -41,6 +43,6 @@ python3 scripts/build.py --background docs/demo/wallpaper.svg \
 ffplay -autoexit build/preview-custom.mp4
 ```
 
-`--panel-color` sets solid panels/backdrop; wallpaper keeps its colors. `--line-color` sets the seams. Both accept `'#RGB'` or `'#RRGGBB'`. Speed ranges from `0.25–4`: `1.25` is faster, `0.75` is slower. Settings apply when rebuilding.
+`--panel-color` sets solid panels/backdrop; wallpaper keeps its colors. `--line-color` sets the seams. Both accept `'#RGB'` or `'#RRGGBB'`. Speed ranges from `0.25–4`, with `1.25` as the default; lower values are slower. Settings apply when rebuilding.
 
 The picture is a snapshot, not live SDDM. Audio is optional in video previews; boot audio is not implemented. See [testing, audio, manual installation, and rollback](docs/DEVELOPMENT.md) for details.
