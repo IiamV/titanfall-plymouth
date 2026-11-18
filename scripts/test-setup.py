@@ -122,7 +122,7 @@ class SetupTest(unittest.TestCase):
         picture=self.root/'docs/demo/wallpaper.svg'
         with patch.object(setup,'find_wallpaper',return_value=Wallpaper(picture,'default wallpaper folder','fallback')),patch.object(setup,'choose',side_effect=[1,0]) as menu,patch('builtins.input',return_value='1'):
             options=setup.collect_options()
-        self.assertIn('[default-folder fallback]',menu.call_args_list[0].args[1][1])
+        self.assertIn('— default-folder fallback',menu.call_args_list[0].args[1][1])
         self.assertEqual(options['picture'],str(picture))
 
     def test_sddm_build_uses_the_displayed_image(self):

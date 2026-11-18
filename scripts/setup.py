@@ -119,7 +119,7 @@ def collect_options():
         detected=find_wallpaper()
         picture=detected.path
         picture_error=None
-        suffix=' [default-folder fallback]' if detected.kind=='fallback' else ''
+        suffix=' — default-folder fallback' if detected.kind=='fallback' else ''
     except WallpaperNotFound as error:
         detected=None
         picture=None
