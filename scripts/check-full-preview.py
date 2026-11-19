@@ -56,25 +56,28 @@ def expected(frame):
     return result
 
 
+# Independently verify layer order before fading. Compare native playback to
+# the baked frames exactly: FFmpeg quantizes fade timestamps to frame ticks,
+# which differs from a floating-point fade calculation near its boundary.
+for frame in (0,max(0,math.floor(layers['fade_start']*layers['fps'])-2)):
+    reference=pixels(theme/f'intro-{intro["movie_frames"]+frame}.png')
+    sample=[reference[p*3+c] for p in points for c in range(3)]
+    error=sum(abs(a-b) for a,b in zip(sample,expected(frame)))/len(sample)
+    assert error<.1,f'Baked shutter layer order differs (RGB error {error:.3f})'
+
 for label,seconds in intro['checkpoints'].items():
     actual=pixels(str(prefix)+f'-intro-{label}.png')
     if label=='black':
         assert max(actual)<20,'View/HUD flash remains after closing'
         continue
-    sample=[actual[p*3+c] for p in points for c in range(3)]
-    if seconds<intro['movie_duration']:
-        center=round(seconds*intro['fps']);slack=max(4,math.ceil(intro['frames']*.1))
-        errors=[]
-        for frame in range(max(0,center-slack),min(intro['frames'],center+slack+1)):
-            reference=pixels(theme/f'intro-{frame}.png')
-            errors.append(sum(abs(sample[i*3+c]-reference[p*3+c]) for i,p in enumerate(points) for c in range(3))/len(sample))
-    else:
-        center=round((seconds-intro['movie_duration'])*layers['fps'])
-        slack=max(5,math.ceil(intro['frames']*.1))
-        errors=[sum(abs(a-b) for a,b in zip(sample,expected(frame)))/len(sample)
-                for frame in range(max(0,center-slack),min(layers['frames'],center+slack+1))]
-    error=min(errors)
-    assert error<1.5,f'{label}: native recorded-layer playback differs (RGB error {error:.2f})'
-    print(f'  {label}: native composition RGB error {error:.3f}')
+    center=round(seconds*intro['fps'])
+    slack=max(4,math.ceil(intro['frames']*.1))
+    matched=False
+    for frame in range(max(0,center-slack),min(intro['frames'],center+slack+1)):
+        if actual==pixels(theme/f'intro-{frame}.png'):
+            matched=True
+            break
+    assert matched,f'{label}: native playback differs from baked source frames'
+    print(f'  {label}: native frame {frame} matches exactly')
 assert pixels(str(prefix)+'-screenshot.png')==pixels(theme/'assembled.png'),'Final light-up picture differs'
 print(f'{args.variant}: recorded shutters, original size, layer order, black hold, and final picture verified')
