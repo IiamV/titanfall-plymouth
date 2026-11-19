@@ -40,11 +40,31 @@ Queries have short timeouts. Config files and `.fehbg` are parsed as data, never
 
 Format references: [Hyprpaper](https://wiki.hypr.land/hypr-ecosystem/user/hyprpaper/), [Waypaper](https://anufrievroman.gitbook.io/waypaper/configuration), [swww query changes](https://github.com/LGFae/swww/blob/main/CHANGELOG.md), [Sway output configuration](https://github.com/swaywm/sway/blob/master/sway/sway-output.5.scd).
 
+## Short and Full sequences
+
+Short remains the default and uses the existing light-up animation. Full adds the actual local `long.mp4` closing footage before that same animation. The source file is unchanged and ignored by Git. Full stops if it is missing or differs from the clip used to calibrate the opening mattes; it does not substitute an invented closing animation.
+
+The marked view area, including the small cable-loop opening, is replaced with `--opening-color` or `--opening-picture`. The cockpit, hands, camera, and moving shutters are decoded from the actual video. Per-frame grayscale mattes under `theme/full/` follow the marked opening and preserve the real shutter pixels. This calibration is specific to the provided clip. Runtime builds need no NumPy or computer-vision package.
+
+Full precomputes PNG playback frames for Plymouth, which cannot directly play the MP4 in this script theme. This increases generated theme/initramfs size. Playback is quantized to the theme's 24 fps and respects the selected speed. The complete source time range is used; the final closed frame is followed by the normal short sequence. The opening picture is a separate choice from the final SDDM/wallpaper panel picture. Video frames use aspect-preserving cover scaling at other screen ratios.
+
+```bash
+python3 scripts/build.py --sequence full --sddm-preview --opening-color '#234567' --audio
+bash scripts/preview-plymouth.sh --headless full-black
+python3 scripts/check-full-preview.py --variant full-black
+python3 scripts/check-previews.py --variant full-black
+```
+
+Full names are `titanfall-full-black`, `titanfall-full-white`, and `titanfall-full-custom`; preview files use `preview-full-<palette>.mp4`. Original short names remain unchanged. Builds write per-profile `manifest-short.json` and `manifest-full.json`, plus `manifest.json` for the latest build. Native previews select the matching profile manifest, so Short and Full can coexist.
+
+For Full, `--audio` includes the closing clip's own sound. If all three optional local light-up audio files are available, their mix is appended at the light-up handoff as well. Boot audio remains unimplemented.
+
 ## Native tests
 
 The preview runs in private user, mount, network, and PID namespaces. It does not select a system theme or modify the host daemon configuration. Headless previews require Xvfb and ImageMagick. Visible previews require X11 or XWayland.
 
 ```bash
+python3 scripts/test-full-sequence.py
 python3 scripts/test-images.py
 python3 scripts/test-wallpaper.py
 python3 scripts/test-setup.py
@@ -59,7 +79,7 @@ bash scripts/preview-plymouth.sh --headless black 8 1280x540
 python3 scripts/check-layouts.py
 ```
 
-For a custom build, preview `custom` and use `python3 scripts/check-previews.py --variant custom`. The preview chooses a duration from the current manifest when seconds are omitted. Use a longer explicit duration if needed for a slow animation. A single build manifest describes the most recently generated variants.
+For a custom build, preview `custom` and use `python3 scripts/check-previews.py --variant custom`. The preview chooses a duration from the matching profile manifest when seconds are omitted. Use a longer explicit duration if needed for a slow animation. Headless captures copy Xvfb's framebuffer immediately and convert it after playback, avoiding screenshot delays during fast panel phases.
 
 For a synthetic prompt check:
 
@@ -86,9 +106,9 @@ Rebuild with the desired SDDM picture or wallpaper afterward.
 
 ## Optional audio and original media
 
-Normal builds do not require the original video or logo. The reference duration is recorded in the layout configuration. If a local `closing-pilot.mp4` exists, its actual metadata and hash are recorded instead; it is never cut or overwritten. The logo is unused.
+Short builds do not require the original video or logo. The reference duration is recorded in the layout configuration. If a local `closing-pilot.mp4` exists, its actual metadata and hash are recorded instead; it is never cut or overwritten. The logo is unused.
 
-`--audio` requires local `machine-noise.m4a`, `marauder-corps.m4a`, and `the-line.m4a`. It generates `build/preview-<variant>-audio.mp4`; plain MP4s are silent. No boot-audio service is installed. Original media paths are ignored by Git and excluded from published history.
+Short's `--audio` requires local `machine-noise.m4a`, `marauder-corps.m4a`, and `the-line.m4a`. It generates `build/preview-<variant>-audio.mp4`; plain MP4s are silent. Full can use its closing clip's sound without those optional files. No boot-audio service is installed. Original media paths are ignored by Git and excluded from published history.
 
 On the development machine, originals are saved in a local stash named `local original media and logo`. Find its index with `git stash list` and restore with `git stash apply 'stash@{N}'`. Applying preserves the stash backup. Stashes and the `local-original-history` backup branch are not pushed.
 

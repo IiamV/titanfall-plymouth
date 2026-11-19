@@ -9,3 +9,5 @@ The black and white GIFs and the visual tracks of their MP4s use the packaged **
 The existing preview audio is retained and time-scaled to match. Original reference video, audio source files, and logo remain excluded from the repository.
 
 The separate wallpaper demo uses the original vector illustration in [wallpaper.svg](wallpaper.svg).
+
+The Full demo uses the supplied local `long.mp4` closing footage, with the marked opening replaced by the repository's wallpaper illustration and the SDDM light-up appended. Its sound is the closing clip's audio. The raw reference clip is not included in Git.
