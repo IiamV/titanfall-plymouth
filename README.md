@@ -43,26 +43,4 @@ Use arrow keys and Enter to choose **SDDM**, **Picture**, or **Custom**. SDDM an
 
 Installation requests sudo only at the final step and uses `plymouth-set-default-theme -R`. Existing theme files and the previous selection are backed up locally. Short builds work without the original reference media.
 
-## Command-line options
-
-```bash
-python3 scripts/build.py --background docs/demo/wallpaper.svg \
-  --panel-color '#0b1220' --line-color '#6ee7ff' --speed 1.25
-ffplay -autoexit build/preview-custom.mp4
-```
-
-`--panel-color` sets solid panels/backdrop; wallpaper keeps its colors. `--line-color` sets the seams. Both accept `'#RGB'` or `'#RRGGBB'`. Speed ranges from `0.25–4`, with `1.25` as the default; lower values are slower. Settings apply when rebuilding.
-
-For Long or Semi-long, choose the outside color/picture. It fills the initial outside view and follows the cockpit opening as the camera moves:
-
-```bash
-python3 scripts/build.py --sequence long --sddm-preview \
-  --opening-picture docs/demo/wallpaper.svg --audio
-ffplay -autoexit build/preview-long-black-audio.mp4
-```
-
-Closing keeps the recorded doors at their original size; the outside object on the right stays removed.
-
-Use `--opening-color '#234567'` instead for a solid view. Use `--sequence semi-long` to skip the approach and typing. Each sequence installs as a separate theme.
-
 The picture is a snapshot, not live SDDM. Audio is optional in video previews; boot audio is not implemented. See [testing, audio, manual installation, and rollback](docs/DEVELOPMENT.md) for details.
