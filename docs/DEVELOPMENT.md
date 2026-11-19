@@ -55,7 +55,7 @@ Long's approach uses the authored contours in `theme/closing/rotoscope.json`, wi
 Plymouth cannot play MP4 directly in this script theme, so generated frames increase theme/initramfs size. Semi-long excludes its final source frame, which contains an unrelated HUD flash; original files remain unchanged. The MP4 uses variable timestamps for the 60 fps intro and 24 fps light-up. Long/Semi-long GIF demos use 40 fps. Video frames preserve their aspect ratio and cover displays with other screen ratios.
 
 ```bash
-python3 scripts/build.py --sequence long --sddm-preview --opening-picture docs/demo/wallpaper.svg --audio
+python3 scripts/build.py --sequence long --sddm-preview --opening-picture docs/assets/wallpaper.svg --audio
 bash scripts/preview-plymouth.sh --headless long-black
 python3 scripts/check-full-preview.py --variant long-black
 python3 scripts/check-previews.py --variant long-black

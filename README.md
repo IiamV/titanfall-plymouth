@@ -10,13 +10,13 @@ Cockpit panels light up **left → middle → right → top → bottom**, reveal
 
 [Black with sound](docs/demo/black-audio.mp4) · [White with sound](docs/demo/white-audio.mp4)
 
-Both use the Maldives SDDM greeter at the default **1.25×** speed ([credits](docs/demo/ATTRIBUTION.md)).
+Both use the Maldives SDDM greeter at the default **1.25×** speed ([credits](docs/assets/ATTRIBUTION.md)).
 
 **Wallpaper with cyan lines and 1.25× speed**
 
 ![Wallpaper panel animation](docs/demo/wallpaper.gif)
 
-[Wallpaper video](docs/demo/wallpaper.mp4) · [Example wallpaper](docs/demo/wallpaper.svg)
+[Wallpaper video](docs/demo/wallpaper.mp4) · [Example wallpaper](docs/assets/wallpaper.svg)
 
 | Long: approach + typing + closing | Semi-long: closing |
 | --- | --- |

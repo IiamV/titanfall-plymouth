@@ -161,7 +161,7 @@ def collect_options(sequence='short'):
     opening_color=opening_picture=None
     opening_args=[]
     if sequence!='short':
-        opening_default=image or str(ROOT/'docs/demo/wallpaper.svg')
+        opening_default=image or str(ROOT/'docs/assets/wallpaper.svg')
         opening_choice=choose('Outside / cockpit view',['Solid color',f'Picture — {opening_default}'])
         if opening_choice==0:
             opening_color=ask('Opening hex color',panel_color or '#0b1220',hex_color)

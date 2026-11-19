@@ -29,7 +29,7 @@ class SetupTest(unittest.TestCase):
         self.addCleanup(self.root_patch.stop); self.addCleanup(self.theme_patch.stop)
         self.sddm=self.root/'sddm-preview.png'
         self.sddm.write_bytes(b'image')
-        picture=self.root/'docs/demo/wallpaper.svg'
+        picture=self.root/'docs/assets/wallpaper.svg'
         picture.parent.mkdir(parents=True)
         picture.write_text('<svg/>')
         discovery=patch.object(setup,'find_sddm_image',return_value=SDDMImage(self.sddm,'test','packaged theme screenshot'))
@@ -52,7 +52,7 @@ class SetupTest(unittest.TestCase):
 
     def test_long_paths_wrap_without_truncating_or_autowrapping(self):
         options=['SDDM — /usr/share/sddm/themes/WarGames/preview.png',
-                 'Picture — /home/someone/a long project path/docs/demo/wallpaper.svg',
+                 'Picture — /home/someone/a long project path/docs/assets/wallpaper.svg',
                  'Custom — enter an image path']
         for columns in (24,40,80,120):
             rows=setup.menu_lines(options,1,columns)
@@ -107,7 +107,7 @@ class SetupTest(unittest.TestCase):
         with patch.object(setup,'choose',side_effect=[1,0,0]) as menu,patch('builtins.input',return_value='1'):
             options=setup.collect_options()
         labels=menu.call_args_list[0].args[1]
-        picture=str(self.root/'docs/demo/wallpaper.svg')
+        picture=str(self.root/'docs/assets/wallpaper.svg')
         self.assertEqual(labels,[f'SDDM — {self.sddm}',f'Picture — {picture}','Custom — enter an image path'])
         self.assertEqual(options['picture'],picture)
         self.assertEqual(options['command'][options['command'].index('--background')+1],picture)
@@ -119,7 +119,7 @@ class SetupTest(unittest.TestCase):
         self.assertIsNone(options['picture'])
 
     def test_default_folder_is_marked_as_fallback(self):
-        picture=self.root/'docs/demo/wallpaper.svg'
+        picture=self.root/'docs/assets/wallpaper.svg'
         with patch.object(setup,'find_wallpaper',return_value=Wallpaper(picture,'default wallpaper folder','fallback')),patch.object(setup,'choose',side_effect=[1,0,0]) as menu,patch('builtins.input',return_value='1'):
             options=setup.collect_options()
         self.assertIn('— default-folder fallback',menu.call_args_list[0].args[1][1])
@@ -165,7 +165,7 @@ class SetupTest(unittest.TestCase):
             options=setup.collect_options('long')
         self.assertEqual(options['variant'],'long-black')
         self.assertEqual(options['opening_color'],'#aabbcc')
-        self.assertEqual(options['picture'],str(self.root/'docs/demo/wallpaper.svg'))
+        self.assertEqual(options['picture'],str(self.root/'docs/assets/wallpaper.svg'))
         self.assertEqual(options['command'][options['command'].index('--sequence')+1],'long')
         self.assertEqual(options['command'][options['command'].index('--opening-color')+1],'#aabbcc')
 
