@@ -24,6 +24,7 @@ fun fit_panel(image, rectangle)
 }
 fun fit_intro(image)
 {
+    if (width == 960 && height == 540) return image;
     local.factor = Math.Max(width/960,height/540);
     local.w = Math.Int(960*local.factor+0.999);
     local.h = Math.Int(540*local.factor+0.999);

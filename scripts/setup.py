@@ -19,12 +19,13 @@ import uuid
 
 from build import DEFAULT_SPEED, animation_speed, hex_color
 from images import validate_image
+from full_sequence import PROFILES, normalize
 from sddm_background import SDDMImageNotFound, find_sddm_image
 from wallpaper import WallpaperNotFound, find_wallpaper
 
 ROOT = Path(__file__).resolve().parents[1]
 THEMES = Path('/usr/share/plymouth/themes')
-VARIANTS = {'black','white','custom','full-black','full-white','full-custom'}
+VARIANTS = {prefix+palette for prefix in ('','long-','semi-long-','full-') for palette in ('black','white','custom')}
 
 
 def menu_lines(options, selected, columns):
@@ -108,6 +109,7 @@ def image_path(value):
 
 
 def collect_options(sequence='short'):
+    sequence=normalize(sequence)
     try:
         sddm=str(find_sddm_image(preview=True).path.resolve())
         sddm_error=None
@@ -158,16 +160,16 @@ def collect_options(sequence='short'):
     speed=(DEFAULT_SPEED,1,0.75)[speed_choice] if speed_choice<3 else ask('Custom speed (0.25–4; lower is slower)',str(DEFAULT_SPEED),animation_speed)
     opening_color=opening_picture=None
     opening_args=[]
-    if sequence=='full':
+    if sequence!='short':
         opening_default=image or str(ROOT/'docs/demo/wallpaper.svg')
-        opening_choice=choose('Cockpit view before closing',['Solid color',f'Picture — {opening_default}'])
+        opening_choice=choose('Outside / cockpit view',['Solid color',f'Picture — {opening_default}'])
         if opening_choice==0:
             opening_color=ask('Opening hex color',panel_color or '#0b1220',hex_color)
             opening_args=['--opening-color',opening_color]
         else:
             opening_picture=ask('Opening picture path',opening_default,image_path)
             opening_args=['--opening-picture',opening_picture]
-        variant='full-'+variant
+        variant=sequence+'-'+variant
     command=[sys.executable,str(ROOT/'scripts/build.py'),*image_args,*color_args,'--speed',str(speed),'--sequence',sequence,*opening_args]
     return {'variant':variant,'sequence':sequence,'picture':image,'panel_color':panel_color,'line_color':line_color,'speed':speed,
             'opening_color':opening_color,'opening_picture':opening_picture,'command':command}
@@ -314,14 +316,14 @@ def main():
     print('\n╭ Titanfall Plymouth\n╰ Configure · preview · install')
     check_dependencies()
     while True:
-        sequence=('short','full')[choose('Sequence',['Short — panel light-up','Full — actual cockpit closing + light-up'])]
-        if sequence=='full' and not (ROOT/'long.mp4').is_file():
-            print('  Full needs the supplied long.mp4 in the project folder. Choose Short or restore that local file.')
+        sequence=('short','semi-long','long')[choose('Sequence',['Short — panel light-up','Semi-long — cockpit closing + light-up','Long — outside approach, typing, closing + light-up'])]
+        if sequence!='short' and not (ROOT/PROFILES[sequence]).is_file():
+            print(f'  {sequence.title()} needs {PROFILES[sequence]} in the project folder. Choose Short or restore that local file.')
             continue
         break
     options=collect_options(sequence)
     print(f'\n◇ Ready to build\n  Picture: {options["picture"] or "none (solid panels)"}\n  Colors: {options["panel_color"]} / {options["line_color"]}\n  Speed: {options["speed"]:g}×')
-    if options.get('sequence')=='full': print('  Cockpit view: '+str(options['opening_picture'] or options['opening_color']))
+    if options.get('sequence','short')!='short': print('  Cockpit view: '+str(options['opening_picture'] or options['opening_color']))
     preview=build_theme(options)
     print(f'✓ Built titanfall-{options["variant"]}\n  Preview: {preview}')
     print('  Repeat: '+shlex.join(options['command']))

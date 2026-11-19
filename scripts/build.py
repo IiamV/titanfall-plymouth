@@ -72,9 +72,10 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
     for command in ("ffmpeg", "ffprobe", "magick"):
         if not shutil.which(command):
             raise SystemExit(f"Missing dependency: {command}")
-    if sequence not in ('short','full'): raise SystemExit('Sequence must be short or full')
-    if sequence=='short' and (opening_color or opening_picture): raise SystemExit('Opening options require --sequence full')
-    try: prepared=full_sequence.prepare(BUILD) if sequence=='full' else None
+    sequence=full_sequence.normalize(sequence)
+    if sequence not in ('short','long','semi-long'): raise SystemExit('Sequence must be short, semi-long, or long')
+    if sequence=='short' and (opening_color or opening_picture): raise SystemExit('Opening options require --sequence long or semi-long')
+    try: prepared=full_sequence.prepare(BUILD,sequence) if sequence!='short' else None
     except ValueError as error: raise SystemExit(str(error)) from error
     config = scaled_config(speed)
     source = ROOT / config["source"]
@@ -127,7 +128,7 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
         palettes = [("custom",panel_color,line_color or automatic)]
     intros={}
     for variant, bg, fg in palettes:
-        output_variant=f"full-{variant}" if sequence=='full' else variant
+        output_variant=f"{sequence}-{variant}" if sequence!='short' else variant
         name = f"titanfall-{output_variant}"
         theme = BUILD / "themes" / name
         if theme.exists():
@@ -295,7 +296,7 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
         print(f"Built {name}: inward line entrance, picture slide/fade, outward line exit")
     manifest = {"source":config["source"],"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest() if source.is_file() else None,
                 "source_duration":reference_duration,"source_frames":metadata["streams"][0].get("nb_frames") if metadata else None,"fps":fps,
-                "sequence":sequence,"intro":intro,"intros":intros,"timeline_offset":intro["duration"],"speed":speed,"palettes":{(f"full-{v}" if sequence=="full" else v):{"panel":bg,"lines":fg} for v,bg,fg in palettes},
+                "sequence":sequence,"intro":intro,"intros":intros,"timeline_offset":intro["duration"],"speed":speed,"palettes":{(f"{sequence}-{v}" if sequence!="short" else v):{"panel":bg,"lines":fg} for v,bg,fg in palettes},
                 "panels":panels,"mode":"inward-pictures-outward","assembly_time":assembly_time,
                 "lines":{"animation":"horizontal-endpoints","frames":line_frames,"segments":segments,"horizontal_traces":horizontal_traces,**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
                 "preview_duration":duration+intro["duration"],"short_duration":duration,"artwork":config["artwork"],
@@ -307,10 +308,10 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sequence",choices=['short','full'],default='short',help='short light-up or full actual closing footage followed by light-up')
+    parser.add_argument("--sequence",choices=['short','semi-long','long','full'],default='short',help='short light-up, semi-long closing, or long approach/typing/closing (full aliases long)')
     opening=parser.add_mutually_exclusive_group()
-    opening.add_argument('--opening-color',type=hex_color,help='color inside the marked cockpit opening (full sequence)')
-    opening.add_argument('--opening-picture',type=image_argument,help='picture inside the marked cockpit opening (full sequence)')
+    opening.add_argument('--opening-color',type=hex_color,help='color inside the outside view and cockpit opening (long/semi-long)')
+    opening.add_argument('--opening-picture',type=image_argument,help='picture inside the outside view and cockpit opening (long/semi-long)')
     parser.add_argument("--audio",action="store_true",help="mix local audio files into MP4 previews")
     parser.add_argument("--panel-color",type=hex_color,help="hex backdrop/solid-panel color; creates the custom variant")
     parser.add_argument("--line-color",type=hex_color,help="hex seam color; creates the custom variant")

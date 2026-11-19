@@ -7,7 +7,12 @@ import shutil
 import subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
-DATA=ROOT/'theme/full'
+DATA=ROOT/'theme/closing'
+PROFILES={'long':'long-new.mp4','semi-long':'semi-long.mp4'}
+
+
+def normalize(sequence):
+    return 'long' if sequence=='full' else sequence
 
 
 def run(*command): subprocess.run([str(value) for value in command],check=True)
@@ -25,18 +30,20 @@ def interpolate(keys,seconds):
     return keys[-1][1]
 
 
-def prepare(build_root):
-    tracking=json.loads((DATA/'tracking.json').read_text())
+def prepare(build_root,sequence='long'):
+    sequence=normalize(sequence)
+    if sequence not in PROFILES: raise ValueError('Closing sequence must be long or semi-long')
+    tracking=json.loads((DATA/sequence/'tracking.json').read_text())
     source=ROOT/tracking['source']
     if not source.is_file():
-        raise ValueError('Full sequence requires the local long.mp4 reference. The short version does not need it.')
+        raise ValueError(f'{sequence.title()} requires the local {tracking["source"]} reference. Short does not need it.')
     digest=hashlib.sha256(source.read_bytes()).hexdigest()
     if digest!=tracking['source_sha256']:
-        raise ValueError('long.mp4 differs from the calibrated closing clip. Restore the supplied reference so the opening mask stays aligned.')
+        raise ValueError(f'{tracking["source"]} differs from the calibrated clip. Restore the supplied reference so the opening stays aligned.')
     mattes=DATA/'masks'
-    if len(list(mattes.glob('*.png')))!=len(tracking['frames']):
-        raise ValueError('The calibrated full-sequence opening mattes are missing. Restore the repository assets before building Full.')
-    frames=build_root/'full-source-frames'
+    if any(not (mattes/f'{entry["mask"]}.png').is_file() for entry in tracking['frames']):
+        raise ValueError('The calibrated opening mattes are missing. Restore the repository assets before building this sequence.')
+    frames=build_root/f'{sequence}-source-frames'
     marker=frames/'source.sha256'
     if not marker.is_file() or marker.read_text()!=digest or len(list(frames.glob('*.png')))!=len(tracking['frames']):
         if frames.exists(): shutil.rmtree(frames)
@@ -45,7 +52,7 @@ def prepare(build_root):
             '-fps_mode','passthrough','-start_number',0,frames/'%d.png')
         marker.write_text(digest)
     return {'source':source,'sha256':digest,'frames':frames,'mattes':mattes,'tracking':tracking,
-            'occlusion':json.loads((DATA/'occlusion.json').read_text())}
+            'occlusion':{'fade':tracking['fade']},'sequence':sequence}
 
 
 def compose(theme,prepared,speed,fps,color,picture=None):
@@ -56,8 +63,6 @@ def compose(theme,prepared,speed,fps,color,picture=None):
         run('magick',str(picture)+'[0]','-background',color,'-alpha','remove','-alpha','off',
             '-resize','960x540^','-gravity','center','-extent','960x540','PNG24:'+str(opening))
     else: run('magick','-size','960x540',f'xc:{color}','PNG24:'+str(opening))
-    reference=theme/'opening-mask.png'
-    run('magick',DATA/'opening-mask.png','-resize','960x540!',reference)
     for frame in range(count):
         source_time=frame/fps*speed
         source_index=min(range(len(tracking['frames'])),key=lambda i:abs(tracking['frames'][i]['time']-source_time))
@@ -70,10 +75,13 @@ def compose(theme,prepared,speed,fps,color,picture=None):
             shutil.copy2(source,target)
             run('magick','-size','960x540','xc:black',mask)
             continue
-        shutil.copy2(prepared.get('mattes',DATA/'masks')/f'{source_index}.png',mask)
+        shutil.copy2(prepared.get('mattes',DATA/'masks')/f'{entry["mask"]}.png',mask)
         run('magick',source,'(',opening,'-evaluate','Multiply',gain,mask,'-alpha','off','-compose','CopyOpacity',
             '-composite',')','-compose','Over','-composite','PNG24:'+str(target))
-    return {'duration':count/fps,'frames':count,'source':str(prepared['source']),
+    checkpoints={'start':0}
+    checkpoints.update({label:min(count-1,round(index*1001/30000/speed*fps))/fps
+                        for label,index in tracking.get('checkpoints',{}).items()})
+    return {'duration':count/fps,'frames':count,'source':str(prepared['source']),'checkpoints':checkpoints,
             'source_sha256':prepared['sha256'],'opening':{'color':color,'picture':str(picture) if picture else None}}
 
 
