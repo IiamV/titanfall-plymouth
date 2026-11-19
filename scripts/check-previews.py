@@ -53,12 +53,13 @@ def line_strength(frame,photo,ink,foreground):
 
 
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--variant",choices=["black","white","custom","full-black","full-white","full-custom"])
+parser.add_argument("--variant",choices=["black","white","custom","full-black","full-white","full-custom","long-black","long-white","long-custom","semi-long-black","semi-long-white","semi-long-custom"])
 parser.add_argument("--check-texture-motion",action="store_true",help="fit fading and internal motion using the coordinate test picture")
 args=parser.parse_args()
 manifest_path=ROOT/"build/manifest.json"
 if args.variant:
-    candidate=ROOT/("build/manifest-full.json" if args.variant.startswith("full-") else "build/manifest-short.json")
+    profile=args.variant.rsplit("-",1)[0] if "-" in args.variant else "short"
+    candidate=ROOT/f"build/manifest-{profile}.json"
     if candidate.is_file(): manifest_path=candidate
 manifest=json.loads(manifest_path.read_text())
 assert manifest["mode"] == "inward-pictures-outward"

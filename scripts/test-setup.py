@@ -160,21 +160,21 @@ class SetupTest(unittest.TestCase):
         with patch.object(setup,'choose',side_effect=[2,0,0]),patch('builtins.input',side_effect=[str(self.root/'missing.png'),'']):
             self.assertIsNone(setup.collect_options()['picture'])
 
-    def test_full_profile_has_separate_name_and_opening_color(self):
+    def test_long_profile_has_separate_name_and_opening_color(self):
         with patch.object(setup,'choose',side_effect=[1,0,0,0]),patch('builtins.input',return_value='#abc'):
-            options=setup.collect_options('full')
-        self.assertEqual(options['variant'],'full-black')
+            options=setup.collect_options('long')
+        self.assertEqual(options['variant'],'long-black')
         self.assertEqual(options['opening_color'],'#aabbcc')
         self.assertEqual(options['picture'],str(self.root/'docs/demo/wallpaper.svg'))
-        self.assertEqual(options['command'][options['command'].index('--sequence')+1],'full')
+        self.assertEqual(options['command'][options['command'].index('--sequence')+1],'long')
         self.assertEqual(options['command'][options['command'].index('--opening-color')+1],'#aabbcc')
 
-    def test_full_profile_can_use_an_independent_opening_picture(self):
+    def test_long_profile_can_use_an_independent_opening_picture(self):
         picture=self.root/'opening.svg'
         picture.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="red"/></svg>')
         with patch.object(setup,'choose',side_effect=[0,1,1,1]),patch('builtins.input',return_value=str(picture)):
-            options=setup.collect_options('full')
-        self.assertEqual(options['variant'],'full-white')
+            options=setup.collect_options('long')
+        self.assertEqual(options['variant'],'long-white')
         self.assertEqual(options['speed'],1)
         self.assertEqual(options['opening_picture'],str(picture))
         self.assertNotEqual(options['opening_picture'],options['picture'])
@@ -186,6 +186,13 @@ class SetupTest(unittest.TestCase):
         self.assertEqual(options['sequence'],'short')
         self.assertNotIn('--opening-color',options['command'])
         self.assertNotIn('--opening-picture',options['command'])
+
+    def test_semi_long_uses_distinct_theme_and_source_choice(self):
+        with patch.object(setup,'choose',side_effect=[1,0,0,0]),patch('builtins.input',return_value='#abc'):
+            options=setup.collect_options('semi-long')
+        self.assertEqual(options['variant'],'semi-long-black')
+        self.assertEqual(options['sequence'],'semi-long')
+        self.assertIn('semi-long',options['command'])
 
     def test_preview_only_never_offers_install(self):
         options={'variant':'custom','picture':None,'panel_color':'#123456','line_color':'auto','speed':1,'command':['python3','build.py']}

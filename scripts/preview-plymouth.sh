@@ -22,10 +22,12 @@ while [[ ${1:-} == --* ]]; do
     shift
 done
 variant=${1:-white}
-[[ $variant =~ ^(full-)?(black|white|custom)$ ]] || { echo 'Variant must be black, white, custom, or their full- variants' >&2; exit 1; }
+[[ $variant =~ ^((full|long|semi-long)-)?(black|white|custom)$ ]] || { echo 'Variant must be black, white, custom, or long-/semi-long- variants' >&2; exit 1; }
 if (( $# )); then shift; fi
 manifest="$ROOT/build/manifest-short.json"
-if [[ $variant == full-* ]]; then manifest="$ROOT/build/manifest-full.json"; fi
+if [[ $variant == full-* ]]; then manifest="$ROOT/build/manifest-full.json";
+elif [[ $variant == semi-long-* ]]; then manifest="$ROOT/build/manifest-semi-long.json";
+elif [[ $variant == long-* ]]; then manifest="$ROOT/build/manifest-long.json"; fi
 if [[ ! -f $manifest ]]; then manifest="$ROOT/build/manifest.json"; fi
 seconds=${1:-$(python3 -c 'import json,math,sys; print(max(8,math.ceil(json.load(open(sys.argv[1]))["preview_duration"])+1))' "$manifest")}
 resolution=${2:-960x540}
@@ -100,10 +102,14 @@ preview_started=$(python3 -c 'import time; print(time.monotonic())')
 wait_until() {
     python3 -c 'import sys,time; time.sleep(max(0,float(sys.argv[1])+float(sys.argv[2])-time.monotonic()))' "$preview_started" "$1"
 }
-if [[ $variant == full-* ]]; then capture intro-start; else capture background; fi
+if [[ $variant == *-black || $variant == *-white || $variant == *-custom ]]; then capture intro-start; else capture background; fi
 while read -r moment label; do
     wait_until "$moment"
-    capture "$label"
+    if $headless && [[ $label == background && $variant == *-* ]]; then
+        preview_started=$(python3 "$ROOT/scripts/anchor-preview.py" "$framebuffer/Xvfb_screen0" "$manifest" "$framebuffer/background.xwd")
+    else
+        capture "$label"
+    fi
 done < <(python3 - "$manifest" <<'PYPLAN'
 import json,sys
 m=json.load(open(sys.argv[1])); lines=m['lines']
@@ -120,7 +126,10 @@ for fraction,label in [(0.25,'exit-early'),(0.75,'exit-late')]:
 offset=m.get('timeline_offset',0)
 events=[(moment+offset,label) for moment,label in events]
 if offset:
-    events.extend([(1/m['speed'],'intro-mid'),(2.4/m['speed'],'intro-closing'),(2.8/m['speed'],'intro-black'),(offset,'background')])
+    events.extend([(moment,'intro-'+label) for label,moment in m['intro']['checkpoints'].items()])
+    # Start watching before the handoff so helper startup cannot miss the
+    # brief blank interval on the shorter clip.
+    events.append((max(offset-0.1,m['intro']['checkpoints']['black']+0.01),'background'))
 for moment,label in sorted(events): print(moment,label)
 PYPLAN
 )
