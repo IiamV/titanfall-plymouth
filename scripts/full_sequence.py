@@ -55,17 +55,35 @@ def prepare(build_root,sequence='long'):
             'occlusion':{'fade':tracking['fade']},'sequence':sequence}
 
 
+def playback_plan(tracking,speed,tail_fps):
+    rate=tracking.get('source_rate',[tail_fps,1])
+    source_fps=rate[0]/rate[1]
+    end=tracking.get('playback_end_frame',len(tracking['frames']))
+    if not isinstance(end,int) or not 1<=end<=len(tracking['frames']):
+        raise ValueError('Invalid closing playback endpoint')
+    source_duration=end/source_fps if 'source_rate' in tracking else tracking['duration']
+    # Keep every source frame at the default speed. A separate clock lets
+    # Short retain its existing 24 fps without decimating the cockpit movie.
+    fps=min(60,max(source_fps,source_fps*speed))
+    count=math.ceil(source_duration/speed*fps-1e-8)
+    entries=tracking['frames'][:end]
+    indices=[min(range(end),key=lambda i:abs(entries[i]['time']-frame/fps*speed)) for frame in range(count)]
+    return {'fps':fps,'frames':count,'duration':count/fps,'source_indices':indices,
+            'source_duration':source_duration,'source_end_frame':end,
+            'trimmed_frames':len(tracking['frames'])-end}
+
+
 def compose(theme,prepared,speed,fps,color,picture=None):
     tracking=prepared['tracking']
-    count=math.ceil(tracking['duration']/speed*fps)
+    plan=playback_plan(tracking,speed,fps)
+    count=plan['frames'];fps=plan['fps']
     opening=theme/'opening.png'
     if picture:
         run('magick',str(picture)+'[0]','-background',color,'-alpha','remove','-alpha','off',
             '-resize','960x540^','-gravity','center','-extent','960x540','PNG24:'+str(opening))
     else: run('magick','-size','960x540',f'xc:{color}','PNG24:'+str(opening))
     for frame in range(count):
-        source_time=frame/fps*speed
-        source_index=min(range(len(tracking['frames'])),key=lambda i:abs(tracking['frames'][i]['time']-source_time))
+        source_index=plan['source_indices'][frame]
         source=prepared['frames']/f'{source_index}.png'
         entry=tracking['frames'][source_index]
         gain=interpolate(prepared['occlusion']['fade'],entry['time'])
@@ -79,9 +97,9 @@ def compose(theme,prepared,speed,fps,color,picture=None):
         run('magick',source,'(',opening,'-evaluate','Multiply',gain,mask,'-alpha','off','-compose','CopyOpacity',
             '-composite',')','-compose','Over','-composite','PNG24:'+str(target))
     checkpoints={'start':0}
-    checkpoints.update({label:min(count-1,round(index*1001/30000/speed*fps))/fps
+    checkpoints.update({label:min(count-1,round(tracking['frames'][index]['time']/speed*fps))/fps
                         for label,index in tracking.get('checkpoints',{}).items()})
-    return {'duration':count/fps,'frames':count,'source':str(prepared['source']),'checkpoints':checkpoints,
+    return {**plan,'source':str(prepared['source']),'checkpoints':checkpoints,
             'source_sha256':prepared['sha256'],'opening':{'color':color,'picture':str(picture) if picture else None}}
 
 
@@ -89,8 +107,8 @@ def prepend(theme,preview,intro,fps):
     temporary=preview.with_name('tail-'+preview.name)
     preview.replace(temporary)
     prefix=preview.with_name('intro-'+preview.name)
-    run('ffmpeg','-hide_banner','-loglevel','error','-y','-framerate',fps,'-i',theme/'intro-%d.png',
+    run('ffmpeg','-hide_banner','-loglevel','error','-y','-framerate',intro['fps'],'-i',theme/'intro-%d.png',
         '-frames:v',intro['frames'],'-c:v','libx264','-crf',16,'-pix_fmt','yuv420p',prefix)
     run('ffmpeg','-hide_banner','-loglevel','error','-y','-i',prefix,'-i',temporary,
         '-filter_complex','[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]concat=n=2:v=1:a=0[out]',
-        '-map','[out]','-c:v','libx264','-crf',16,'-pix_fmt','yuv420p','-movflags','+faststart',preview)
+        '-map','[out]','-fps_mode','vfr','-c:v','libx264','-crf',16,'-pix_fmt','yuv420p','-movflags','+faststart',preview)

@@ -227,7 +227,9 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
         run("magick", "-size", "16x16", f"xc:{bg}", theme / "panel.png")
         intro=full_sequence.compose(theme,prepared,speed,fps,opening_color or bg,opening_picture) if prepared else {'duration':0,'frames':0}
         intros[output_variant]=intro
-        motion_setup=setup+[f"intro_duration = {intro['duration']};",f"intro_frame_count = {intro['frames']};"]
+        motion_setup=setup+[f"intro_duration = {intro['duration']};",f"intro_frame_count = {intro['frames']};",
+                            f"intro_fps = {intro.get('fps',fps)};",
+                            f"intro_source_indices = {json.dumps(intro.get('source_indices',[]))};"]
         script = (ROOT / "theme/titanfall.script").read_text()
         for token,value in {"@BG@":",".join(str(v/255) for v in rgb(bg)), "@FG@":",".join(str(v/255) for v in rgb(fg)),
                             "@MOTION_SETUP@":"\n".join(motion_setup)}.items():
@@ -288,7 +290,7 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
             if prepared:
                 index=len(labels)+1
                 audio_inputs += ['-i',prepared['source']]
-                audio_filters.append(f"[{index}:a]{tempo}[closing]")
+                audio_filters.append(f"[{index}:a]atrim=duration={intro['source_duration']},asetpts=PTS-STARTPTS,{tempo}[closing]")
                 labels.append('[closing]')
             audio_filters.append(''.join(labels)+f"amix=inputs={len(labels)}:normalize=0,alimiter=limit=0.9[mix]")
             ffmpeg('-i',preview,*audio_inputs,'-filter_complex',';'.join(audio_filters),'-map','0:v','-map','[mix]',

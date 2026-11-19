@@ -662,5 +662,10 @@
     "moving": 88,
     "closing": 136,
     "black": 155
-  }
+  },
+  "source_rate": [
+    30000,
+    1001
+  ],
+  "playback_end_frame": 158
 }

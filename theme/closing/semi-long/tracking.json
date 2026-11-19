@@ -210,5 +210,11 @@
     "moving": 2,
     "closing": 22,
     "black": 34
-  }
+  },
+  "source_rate": [
+    30000,
+    1001
+  ],
+  "playback_end_frame": 44,
+  "trim_reason": "Exclude the final post-close HUD flash; keep the complete closing and clean black interval."
 }

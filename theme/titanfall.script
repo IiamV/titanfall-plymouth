@@ -131,21 +131,34 @@ Plymouth.SetDisplayQuestionFunction(display_prompt);
 Plymouth.SetDisplayMessageFunction(display_message);
 Plymouth.SetHideMessageFunction(hide_message);
 tick = 0;
+tail_started = intro_frame_count == 0;
+intro_source_index = -1;
 fun refresh()
 {
     if (width != Window.GetWidth() || height != Window.GetHeight() ||
         window_x != Window.GetX() || window_y != Window.GetY()) resize_layout();
-    local.elapsed = tick/fps;
-    local.in_intro = local.elapsed < intro_duration;
+    local.in_intro = tick < intro_frame_count;
+    if (local.in_intro) local.elapsed = tick/intro_fps;
+    else
+    {
+        local.elapsed = intro_duration+(tick-intro_frame_count)/fps;
+        if (!tail_started)
+        {
+            Plymouth.SetRefreshRate(fps);
+            global.tail_started = 1;
+        }
+    }
     intro_sprite.SetOpacity(local.in_intro);
     if (local.in_intro)
     {
-        local.frame = Math.Min(intro_frame_count-1,Math.Int(local.elapsed*fps));
-        if (local.frame != intro_frame)
+        local.frame = tick;
+        local.source_index = intro_source_indices[local.frame];
+        if (local.source_index != intro_source_index)
         {
             global.intro_original = Image("intro-"+local.frame+".png");
             intro_sprite.SetImage(fit_intro(intro_original));
             global.intro_frame = local.frame;
+            global.intro_source_index = local.source_index;
         }
         intro_sprite.SetPosition(origin_x,origin_y,50);
     }
@@ -183,6 +196,7 @@ fun refresh()
     draw_lines(local.threshold);
     tick++;
 }
-Plymouth.SetRefreshRate(fps);
+if (intro_frame_count > 0) Plymouth.SetRefreshRate(intro_fps);
+else Plymouth.SetRefreshRate(fps);
 resize_layout(); refresh();
 Plymouth.SetRefreshFunction(refresh);
