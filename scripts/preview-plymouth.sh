@@ -114,7 +114,9 @@ done < <(python3 - "$manifest" <<'PYPLAN'
 import json,sys
 m=json.load(open(sys.argv[1])); lines=m['lines']
 events=[]
-for fraction,label in [(0.15,'entrance-early'),(0.60,'entrance-late')]:
+# Leave at least one refresh after the lower seam finishes (fraction .569),
+# while the upper seam is still entering. Sampling .60 straddles that tick.
+for fraction,label in [(0.15,'entrance-early'),(0.66,'entrance-late')]:
     events.append((lines['entrance_start']+fraction*lines['entrance_duration'],label))
 events.append((lines['entrance_end']+0.03,'lines-ready'))
 for name,panel in m['panels'].items():

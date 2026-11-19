@@ -73,6 +73,57 @@ class ClosingSequenceTest(unittest.TestCase):
                     if alpha[index]==0:self.assertEqual(actual[i:i+3],original[i:i+3])
                     if alpha[index]==255:self.assertEqual(actual[i:i+3],opening[i:i+3])
 
+    def test_every_source_frame_has_its_own_explicit_overlay(self):
+        import math
+        data=json.loads((closing.DATA/'rotoscope.json').read_text())
+        self.assertEqual([e['frame'] for e in data['frames']],list(range(158)))
+        for entry in data['frames']:
+            for path in [entry['outline'],*entry['wires'],*entry['occluders']]:
+                self.assertTrue(all(math.isfinite(c) for point in path for c in point))
+            if entry['frame']<141:
+                self.assertGreater(len(entry['outline']),150)
+                self.assertEqual(len(entry['wires']),2)
+            if entry['frame']>=142:
+                self.assertFalse(entry['outline'])
+        self.assertEqual(data['output_canvas'],[960,540])
+
+    @unittest.skipUnless(shutil.which('ffmpeg'),'FFmpeg required')
+    def test_external_arm_upper_view_and_loop_interior_are_replaced(self):
+        for frame in (48,56,64,112,120,124):
+            mask=pixels(closing.DATA/'masks'/f'{frame}.png','gray')
+            with self.subTest(frame=frame):
+                # The user marked this external arm as part of the outside.
+                self.assertGreater(mask[255*960+630],250)
+                # Grey view under the upper bracket is not cockpit material.
+                self.assertGreater(mask[81*960+405],250)
+                # Preserve thin cables, not the whole grey area inside a U.
+                loop_x,loop_y=(532,82) if frame==112 else (525,112)
+                self.assertGreater(mask[loop_y*960+loop_x],250)
+
+    @unittest.skipUnless(shutil.which('ffmpeg'),'FFmpeg required')
+    def test_cables_remain_continuous_in_each_visible_frame(self):
+        data=json.loads((closing.DATA/'rotoscope.json').read_text())
+        for frame in range(141):
+            mask=pixels(closing.DATA/'masks'/f'{frame}.png','gray')
+            for path in data['frames'][frame]['wires']:
+                for x,y in path[8:-8:4]:
+                    px,py=round(x*1.5),round(y*1.5)
+                    if not (2<=px<958 and 2<=py<538):continue
+                    retained=min(mask[(py+dy)*960+px+dx] for dy in (-1,0,1) for dx in (-1,0,1))
+                    self.assertLess(retained,128,f'Wire vanished in frame {frame}')
+
+    @unittest.skipUnless(shutil.which('ffmpeg'),'FFmpeg required')
+    def test_no_source_islands_in_the_closing_slot(self):
+        # Midpoints sampled from the supplied closing footage, rather than
+        # accepting whatever boundary the mask generator happens to produce.
+        slot_y={124:175,125:173,126:174,127:176,128:177,129:177,
+                130:178,131:178,132:179,133:179,134:181,135:183,
+                136:185,137:187,138:190,139:194,140:197}
+        for frame,y in slot_y.items():
+            mask=pixels(closing.DATA/'masks'/f'{frame}.png','gray')
+            with self.subTest(frame=frame):
+                self.assertGreater(mask[round(y*1.5)*960+480],250)
+
     @unittest.skipUnless(shutil.which('ffmpeg'),'FFmpeg required')
     def test_masks_follow_camera_and_protect_typing_hand_and_shutters(self):
         def mask(index):return pixels(closing.DATA/'masks'/f'{index}.png','gray')
