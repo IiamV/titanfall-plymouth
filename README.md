@@ -61,6 +61,8 @@ python3 scripts/build.py --sequence long --sddm-preview \
 ffplay -autoexit build/preview-long-black-audio.mp4
 ```
 
+Closing keeps the recorded doors at their original size; the outside object on the right stays removed.
+
 Use `--opening-color '#234567'` instead for a solid view. Use `--sequence semi-long` to skip the approach and typing. Each sequence installs as a separate theme.
 
 The picture is a snapshot, not live SDDM. Audio is optional in video previews; boot audio is not implemented. See [testing, audio, manual installation, and rollback](docs/DEVELOPMENT.md) for details.

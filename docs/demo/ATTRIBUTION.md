@@ -10,4 +10,4 @@ The existing preview audio is retained and time-scaled to match. Original refere
 
 The separate wallpaper demo uses the original vector illustration in [wallpaper.svg](wallpaper.svg).
 
-The Long and Semi-long demos use the supplied local `long-new.mp4` and `semi-long.mp4` footage. Their outside views are replaced by the repository's wallpaper illustration using moving masks, with the SDDM light-up appended. Each keeps its source clip's audio. Raw reference clips are not included in Git.
+The Long and Semi-long demos use the supplied local `long-new.mp4` and `semi-long.mp4` footage. Their outside views use the repository's wallpaper illustration, tracked to the source camera during Long's approach. Closing uses independent alpha extractions of the actual moving shutters at their original size, with the Maldives SDDM light-up appended. Each keeps its source clip's audio. Raw reference clips are not included in Git.
