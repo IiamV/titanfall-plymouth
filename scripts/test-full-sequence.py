@@ -66,6 +66,52 @@ class ClosingSequenceTest(unittest.TestCase):
             self.assertLess(plan['duration']-plan['source_duration']/speed,1/plan['fps']+1e-8)
             if speed<=1.25:self.assertEqual(set(plan['source_indices']),set(range(44)))
 
+    @unittest.skipUnless(shutil.which('ffmpeg'),'FFmpeg required')
+    def test_recorded_shutters_keep_full_silhouette_above_view_mask(self):
+        import layered_closing
+        c=layered_closing.config()
+        self.assertEqual(c['recorded_last_frame'],141)
+        view=pixels(closing.DATA/'layers/view-mask.png','gray')
+        body=pixels(closing.DATA/'layers/cockpit-mask.png','gray')
+        self.assertEqual(body[255*960+630],0,'Outside arm was restored to the cockpit')
+        over_body=0
+        for part in ('top','bottom'):
+            x,y,w,h=c['crop'][part]
+            for frame in range(120,142):
+                alpha=pixels(closing.DATA/'layers'/f'{part}-{frame}.png','gray')
+                for point in range(0,960*540,17):
+                    if not alpha[point]:continue
+                    px,py=point%960,point//960
+                    self.assertTrue(x<=px<x+w and y<=py<y+h,'Original shutter clipped by its storage crop')
+                    if part=='top' and view[point]==0:over_body+=1
+        self.assertGreater(over_body,100,'Top shutter was clipped to the outside-view aperture')
+
+    def test_long_camera_tracks_picture_and_settles_at_closing_handoff(self):
+        import math
+        camera=json.loads((closing.DATA/'camera.json').read_text())
+        self.assertEqual(camera['source_sha256'],json.loads((closing.DATA/'long/tracking.json').read_text())['source_sha256'])
+        poses=camera['frames']
+        self.assertEqual(len(poses),121)
+        self.assertGreater(max(p['x'] for p in poses)-min(p['x'] for p in poses),100)
+        for pose in poses:
+            self.assertTrue(all(math.isfinite(pose[k]) for k in ('x','y','scale','angle','cover_scale')))
+            self.assertGreater(pose['cover_scale'],0)
+        for pose in poses[-2:]:
+            self.assertEqual([pose[k] for k in ('x','y','angle')],[0,0,0])
+            self.assertEqual(pose['cover_scale'],1)
+
+    def test_native_clock_samples_preview_without_changing_duration(self):
+        for frames in (1,71,254,1016):
+            intro={'frames':frames,'fps':60,'duration':frames/60}
+            fps,count,indices=closing.native_plan(intro,24)
+            self.assertEqual(fps,30)
+            self.assertLess(abs(count/fps-intro['duration']),1/fps+1e-8)
+            self.assertEqual(indices[0],0)
+            self.assertTrue(all(0<=i<frames for i in indices))
+            self.assertEqual(indices,sorted(set(indices)))
+            self.assertLess(frames-indices[-1],3)
+        self.assertEqual(closing.native_plan({'frames':0,'duration':0},24),(24,0,[]))
+
     def test_wall_edge_corrections_do_not_jump_during_steady_closing(self):
         import math
         data=json.loads((closing.DATA/'rotoscope.json').read_text())['frames']

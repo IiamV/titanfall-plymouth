@@ -123,7 +123,8 @@ for name,panel in m['panels'].items():
     start,end=panel['keys'][-2][0],panel['keys'][-1][0]
     events.append((start+0.45*(end-start),'phase-'+name))
 events.append((m['assembly_time']+0.05,'closed'))
-for fraction,label in [(0.25,'exit-early'),(0.75,'exit-late')]:
+# Sample after the lower seam's .737 completion with a full refresh of slack.
+for fraction,label in [(0.25,'exit-early'),(0.85,'exit-late')]:
     events.append((lines['exit_start']+fraction*lines['exit_duration'],label))
 offset=m.get('timeline_offset',0)
 events=[(moment+offset,label) for moment,label in events]
