@@ -10,6 +10,7 @@ assembled_original = Image("assembled.png");
 assembled_sprite = Sprite(); assembled_sprite.SetOpacity(0);
 line_sprite = Sprite(); line_sprite.SetOpacity(0);
 line_frame = -1;
+intro_sprite = Sprite(); intro_sprite.SetOpacity(0); intro_frame = -1;
 for (load_index = 0; panel_order[load_index]; load_index++)
 {
     surfaces[panel_order[load_index]].sprite = Sprite();
@@ -21,6 +22,13 @@ fun fit_panel(image, rectangle)
     target_height = Math.Int((rectangle[1]+rectangle[3])*scale_y)-Math.Int(rectangle[1]*scale_y);
     return image.Scale(Math.Max(1,target_width),Math.Max(1,target_height));
 }
+fun fit_intro(image)
+{
+    local.factor = Math.Max(width/960,height/540);
+    local.w = Math.Int(960*local.factor+0.999);
+    local.h = Math.Int(540*local.factor+0.999);
+    return image.Scale(local.w,local.h).Crop(Math.Int((local.w-width)/2),Math.Int((local.h-height)/2),width,height);
+}
 fun resize_layout()
 {
     global.width = Window.GetWidth(); global.height = Window.GetHeight();
@@ -29,6 +37,8 @@ fun resize_layout()
     global.scale_x = width/960; global.scale_y = height/540;
     if (line_original) line_sprite.SetImage(line_original.Scale(width,height));
     line_sprite.SetPosition(origin_x,origin_y,20);
+    if (intro_original) intro_sprite.SetImage(fit_intro(intro_original));
+    intro_sprite.SetPosition(origin_x,origin_y,50);
     for (local.i = 0; panel_order[local.i]; local.i++)
     {
         local.name = panel_order[local.i];
@@ -124,7 +134,21 @@ fun refresh()
 {
     if (width != Window.GetWidth() || height != Window.GetHeight() ||
         window_x != Window.GetX() || window_y != Window.GetY()) resize_layout();
-    local.seconds = tick/fps;
+    local.elapsed = tick/fps;
+    local.in_intro = local.elapsed < intro_duration;
+    intro_sprite.SetOpacity(local.in_intro);
+    if (local.in_intro)
+    {
+        local.frame = Math.Min(intro_frame_count-1,Math.Int(local.elapsed*fps));
+        if (local.frame != intro_frame)
+        {
+            global.intro_original = Image("intro-"+local.frame+".png");
+            intro_sprite.SetImage(fit_intro(intro_original));
+            global.intro_frame = local.frame;
+        }
+        intro_sprite.SetPosition(origin_x,origin_y,50);
+    }
+    local.seconds = local.elapsed-intro_duration;
     local.complete = local.seconds >= assembly_time;
     assembled_sprite.SetOpacity(local.complete);
     for (local.i = 0; panel_order[local.i]; local.i++)

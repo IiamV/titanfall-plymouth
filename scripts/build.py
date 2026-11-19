@@ -11,6 +11,7 @@ import subprocess
 from sddm_background import SDDMImage, SDDMImageNotFound, find_sddm_image
 from wallpaper import WallpaperNotFound, find_wallpaper
 from images import validate_image
+import full_sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
@@ -67,15 +68,19 @@ def audio_tempo(speed):
     return ",".join(filters)
 
 
-def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAULT_SPEED):
+def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAULT_SPEED, sequence="short", opening_color=None, opening_picture=None):
     for command in ("ffmpeg", "ffprobe", "magick"):
         if not shutil.which(command):
             raise SystemExit(f"Missing dependency: {command}")
+    if sequence not in ('short','full'): raise SystemExit('Sequence must be short or full')
+    if sequence=='short' and (opening_color or opening_picture): raise SystemExit('Opening options require --sequence full')
+    try: prepared=full_sequence.prepare(BUILD) if sequence=='full' else None
+    except ValueError as error: raise SystemExit(str(error)) from error
     config = scaled_config(speed)
     source = ROOT / config["source"]
     required = [ROOT/name for name in ("machine-noise.m4a", "marauder-corps.m4a", "the-line.m4a")] if audio else []
     missing = [path.name for path in required if not path.is_file()]
-    if missing:
+    if missing and sequence=="short":
         raise SystemExit("Missing local audio: "+", ".join(missing)+". Omit --audio or restore your local audio files.")
     metadata = (json.loads(subprocess.check_output([
         "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
@@ -120,8 +125,10 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
         panel_color = panel_color or "#000000"
         automatic = "#000000" if sum(v*w for v,w in zip(rgb(panel_color),(0.2126,0.7152,0.0722)))>150 else "#ffffff"
         palettes = [("custom",panel_color,line_color or automatic)]
+    intros={}
     for variant, bg, fg in palettes:
-        name = f"titanfall-{variant}"
+        output_variant=f"full-{variant}" if sequence=='full' else variant
+        name = f"titanfall-{output_variant}"
         theme = BUILD / "themes" / name
         if theme.exists():
             shutil.rmtree(theme)  # Generated assets only.
@@ -217,13 +224,16 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
                    "-map", "[out]", "-frames:v", count, "-start_number", 0, theme / f"face-{part}-%d.png")
             shutil.copy2(theme / f"face-{part}-{count-1}.png", theme / f"face-{part}.png")
         run("magick", "-size", "16x16", f"xc:{bg}", theme / "panel.png")
+        intro=full_sequence.compose(theme,prepared,speed,fps,opening_color or bg,opening_picture) if prepared else {'duration':0,'frames':0}
+        intros[output_variant]=intro
+        motion_setup=setup+[f"intro_duration = {intro['duration']};",f"intro_frame_count = {intro['frames']};"]
         script = (ROOT / "theme/titanfall.script").read_text()
         for token,value in {"@BG@":",".join(str(v/255) for v in rgb(bg)), "@FG@":",".join(str(v/255) for v in rgb(fg)),
-                            "@MOTION_SETUP@":"\n".join(setup)}.items():
+                            "@MOTION_SETUP@":"\n".join(motion_setup)}.items():
             script = script.replace(token,value)
         (theme / f"{name}.script").write_text(script)
         descriptor = (ROOT / "theme/titanfall.plymouth").read_text().replace("titanfall",name)
-        (theme / f"{name}.plymouth").write_text(descriptor.replace("Titanfall Pilot Link", f"Titanfall Pilot Link ({variant})"))
+        (theme / f"{name}.plymouth").write_text(descriptor.replace("Titanfall Pilot Link", f"Titanfall Pilot Link ({output_variant})"))
         inputs, filters = [], []
         previous = "0:v"
         for index,(part,panel) in enumerate(panels.items(), start=1):
@@ -259,28 +269,48 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
         inputs += ["-framerate",fps,"-i",timeline / "%d.png"]
         filters.append(f"[{line_index}:v]format=rgba[borders]")
         filters.append("[joined][borders]overlay=0:0[out]")
-        preview = BUILD / f"preview-{variant}.mp4"
+        preview = BUILD / f"preview-{output_variant}.mp4"
         ffmpeg("-f","lavfi","-i",f"color=c={bg}:s=960x540:r={fps}:d={duration}",*inputs,
                "-filter_complex",";".join(filters),"-map","[out]","-an","-t",duration,
                "-c:v","libx264","-crf",16,"-pix_fmt","yuv420p","-movflags","+faststart",preview)
+        if prepared: full_sequence.prepend(theme,preview,intro,fps)
         if audio:
             tempo=audio_tempo(speed)
-            ffmpeg("-i",preview,"-i",ROOT/"machine-noise.m4a","-i",ROOT/"marauder-corps.m4a","-i",ROOT/"the-line.m4a",
-                   "-filter_complex",f"[1:a]{tempo},volume=0.6[a];[2:a]{tempo},adelay={round(300/speed)}:all=1[b];[3:a]{tempo},adelay={round(2600/speed)}:all=1[c];[a][b][c]amix=inputs=3:normalize=0,alimiter=limit=0.9[mix]",
-                   "-map","0:v","-map","[mix]","-c:v","copy","-c:a","aac","-t",duration,BUILD/f"preview-{variant}-audio.mp4")
+            audio_inputs=[]
+            audio_filters=[]
+            labels=[]
+            if not missing:
+                audio_inputs += ["-i",ROOT/"machine-noise.m4a","-i",ROOT/"marauder-corps.m4a","-i",ROOT/"the-line.m4a"]
+                for index,(delay,volume) in enumerate(((0,0.6),(300/speed,1),(2600/speed,1)),start=1):
+                    audio_filters.append(f"[{index}:a]{tempo},volume={volume},adelay={round(delay+intro['duration']*1000)}:all=1[a{index}]")
+                    labels.append(f"[a{index}]")
+            if prepared:
+                index=len(labels)+1
+                audio_inputs += ['-i',prepared['source']]
+                audio_filters.append(f"[{index}:a]{tempo}[closing]")
+                labels.append('[closing]')
+            audio_filters.append(''.join(labels)+f"amix=inputs={len(labels)}:normalize=0,alimiter=limit=0.9[mix]")
+            ffmpeg('-i',preview,*audio_inputs,'-filter_complex',';'.join(audio_filters),'-map','0:v','-map','[mix]',
+                   '-c:v','copy','-c:a','aac','-t',duration+intro['duration'],BUILD/f'preview-{output_variant}-audio.mp4')
         print(f"Built {name}: inward line entrance, picture slide/fade, outward line exit")
     manifest = {"source":config["source"],"source_sha256":hashlib.sha256(source.read_bytes()).hexdigest() if source.is_file() else None,
                 "source_duration":reference_duration,"source_frames":metadata["streams"][0].get("nb_frames") if metadata else None,"fps":fps,
-                "speed":speed,"palettes":{v:{"panel":bg,"lines":fg} for v,bg,fg in palettes},
+                "sequence":sequence,"intro":intro,"intros":intros,"timeline_offset":intro["duration"],"speed":speed,"palettes":{(f"full-{v}" if sequence=="full" else v):{"panel":bg,"lines":fg} for v,bg,fg in palettes},
                 "panels":panels,"mode":"inward-pictures-outward","assembly_time":assembly_time,
                 "lines":{"animation":"horizontal-endpoints","frames":line_frames,"segments":segments,"horizontal_traces":horizontal_traces,**config["lines"],"entrance_end":line_in_end,"exit_start":line_out_start,"exit_end":line_out_end},
-                "preview_duration":duration,"artwork":config["artwork"],
+                "preview_duration":duration+intro["duration"],"short_duration":duration,"artwork":config["artwork"],
                 "background":({"path":str(background.path),"theme":background.theme,"kind":background.kind,"fit":fit} if background else None)}
-    (BUILD/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")
+    encoded=json.dumps(manifest,indent=2)+"\n"
+    (BUILD/"manifest.json").write_text(encoded)
+    (BUILD/f"manifest-{sequence}.json").write_text(encoded)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sequence",choices=['short','full'],default='short',help='short light-up or full actual closing footage followed by light-up')
+    opening=parser.add_mutually_exclusive_group()
+    opening.add_argument('--opening-color',type=hex_color,help='color inside the marked cockpit opening (full sequence)')
+    opening.add_argument('--opening-picture',type=image_argument,help='picture inside the marked cockpit opening (full sequence)')
     parser.add_argument("--audio",action="store_true",help="mix local audio files into MP4 previews")
     parser.add_argument("--panel-color",type=hex_color,help="hex backdrop/solid-panel color; creates the custom variant")
     parser.add_argument("--line-color",type=hex_color,help="hex seam color; creates the custom variant")
@@ -305,4 +335,4 @@ if __name__ == "__main__":
     except (SDDMImageNotFound,WallpaperNotFound) as error:
         parser.error(str(error))
     if background: print(f"Using {background.kind}: {background.path}",flush=True)
-    build(args.audio,background,args.panel_color,args.line_color,args.speed)
+    build(args.audio,background,args.panel_color,args.line_color,args.speed,args.sequence,args.opening_color,args.opening_picture)
