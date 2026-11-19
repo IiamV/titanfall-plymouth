@@ -18,11 +18,11 @@ Both use the Maldives SDDM greeter at the default **1.25×** speed ([credits](do
 
 [Wallpaper video](docs/demo/wallpaper.mp4) · [Example wallpaper](docs/demo/wallpaper.svg)
 
-**Full version — actual cockpit footage, configurable view, then light-up**
+| Long: approach + typing + closing | Semi-long: closing |
+| --- | --- |
+| ![Long cockpit sequence](docs/demo/long.gif) | ![Semi-long cockpit sequence](docs/demo/semi-long.gif) |
 
-![Full cockpit sequence](docs/demo/full.gif)
-
-[Full video with closing sound](docs/demo/full-audio.mp4)
+[Long with sound](docs/demo/long-audio.mp4) · [Semi-long with sound](docs/demo/semi-long-audio.mp4)
 
 ## Interactive setup
 
@@ -34,7 +34,7 @@ cd titanfall-plymouth
 ./install.sh
 ```
 
-Choose **Short** (the existing light-up) or **Full** (actual `long.mp4` closing plus light-up). Full needs your local `long.mp4`; the raw reference stays out of Git.
+Choose **Short** (light-up), **Semi-long** (closing + light-up), or **Long** (outside approach, typing, closing + light-up). Long uses local `long-new.mp4`; Semi-long uses local `semi-long.mp4`. Source clips stay out of Git.
 
 Use arrow keys and Enter to choose **SDDM**, **Picture**, or **Custom**. SDDM and Picture show the exact image path beside the choice. Picture detects your desktop/WM wallpaper, then checks standard wallpaper folders (marked as a fallback). Custom asks for a path (leave it blank for no picture). Then choose colors and speed: **1.25× default**, **1× slower**, **0.75× slower**, or Custom. The wizard builds a preview and offers installation afterward.
 
@@ -53,14 +53,14 @@ ffplay -autoexit build/preview-custom.mp4
 
 `--panel-color` sets solid panels/backdrop; wallpaper keeps its colors. `--line-color` sets the seams. Both accept `'#RGB'` or `'#RRGGBB'`. Speed ranges from `0.25–4`, with `1.25` as the default; lower values are slower. Settings apply when rebuilding.
 
-For Full, choose the color or picture visible through the cockpit opening:
+For Long or Semi-long, choose the outside color/picture. It fills the initial outside view and follows the cockpit opening as the camera moves:
 
 ```bash
-python3 scripts/build.py --sequence full --sddm-preview \
+python3 scripts/build.py --sequence long --sddm-preview \
   --opening-picture docs/demo/wallpaper.svg --audio
-ffplay -autoexit build/preview-full-black-audio.mp4
+ffplay -autoexit build/preview-long-black-audio.mp4
 ```
 
-Use `--opening-color '#234567'` instead for a solid view. Short and Full install as separate themes.
+Use `--opening-color '#234567'` instead for a solid view. Use `--sequence semi-long` to skip the approach and typing. Each sequence installs as a separate theme.
 
 The picture is a snapshot, not live SDDM. Audio is optional in video previews; boot audio is not implemented. See [testing, audio, manual installation, and rollback](docs/DEVELOPMENT.md) for details.

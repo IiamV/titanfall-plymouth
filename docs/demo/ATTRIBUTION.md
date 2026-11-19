@@ -10,4 +10,4 @@ The existing preview audio is retained and time-scaled to match. Original refere
 
 The separate wallpaper demo uses the original vector illustration in [wallpaper.svg](wallpaper.svg).
 
-The Full demo uses the supplied local `long.mp4` closing footage, with the marked opening replaced by the repository's wallpaper illustration and the SDDM light-up appended. Its sound is the closing clip's audio. The raw reference clip is not included in Git.
+The Long and Semi-long demos use the supplied local `long-new.mp4` and `semi-long.mp4` footage. Their outside views are replaced by the repository's wallpaper illustration using moving masks, with the SDDM light-up appended. Each keeps its source clip's audio. Raw reference clips are not included in Git.
