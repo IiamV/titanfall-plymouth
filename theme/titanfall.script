@@ -151,9 +151,9 @@ fun refresh()
     intro_sprite.SetOpacity(local.in_intro);
     if (local.in_intro)
     {
-        local.frame = tick;
-        local.source_index = intro_source_indices[local.frame];
-        if (local.source_index != intro_source_index)
+        local.source_index = intro_source_indices[tick];
+        local.frame = local.source_index;
+        if (local.frame != intro_frame)
         {
             global.intro_original = Image("intro-"+local.frame+".png");
             intro_sprite.SetImage(fit_intro(intro_original));

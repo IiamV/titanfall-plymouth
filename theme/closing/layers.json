@@ -1,0 +1,51 @@
+{
+  "canvas": [
+    960,
+    540
+  ],
+  "reference_frames": {
+    "long": {
+      "cockpit": 120,
+      "top": 138,
+      "bottom": 136
+    },
+    "semi-long": {
+      "cockpit": 6,
+      "top": 24,
+      "bottom": 22
+    }
+  },
+  "prefix_end_frame": {
+    "long": 120,
+    "semi-long": 0
+  },
+  "source_time_offset": {
+    "long": 0.2002,
+    "semi-long": 0
+  },
+  "source_end_time": 1.4681333333333333,
+  "fps": 60,
+  "fade_start": 0.7340666666666666,
+  "fade_end": 0.9342666666666667,
+  "recorded_first_frame": 120,
+  "recorded_last_frame": 141,
+  "global_source_offsets": {
+    "long": 0,
+    "semi-long": 114
+  },
+  "crop": {
+    "top": [
+      195,
+      0,
+      645,
+      390
+    ],
+    "bottom": [
+      300,
+      270,
+      405,
+      270
+    ]
+  },
+  "representation": "recorded transparent shutter clips; original size, no position tween"
+}

@@ -227,9 +227,12 @@ def build(audio, background=None, panel_color=None, line_color=None, speed=DEFAU
         run("magick", "-size", "16x16", f"xc:{bg}", theme / "panel.png")
         intro=full_sequence.compose(theme,prepared,speed,fps,opening_color or bg,opening_picture) if prepared else {'duration':0,'frames':0}
         intros[output_variant]=intro
-        motion_setup=setup+[f"intro_duration = {intro['duration']};",f"intro_frame_count = {intro['frames']};",
-                            f"intro_fps = {intro.get('fps',fps)};",
-                            f"intro_source_indices = {json.dumps(intro.get('source_indices',[]))};"]
+        native_fps,native_count,native_indices=full_sequence.native_plan(intro,fps)
+        intro['native_fps']=native_fps
+        intro['native_frames']=native_count
+        motion_setup=setup+[f"intro_duration = {intro['duration']};",f"intro_frame_count = {native_count};",
+                            f"intro_fps = {native_fps};",
+                            f"intro_source_indices = {json.dumps(native_indices)};"]
         script = (ROOT / "theme/titanfall.script").read_text()
         for token,value in {"@BG@":",".join(str(v/255) for v in rgb(bg)), "@FG@":",".join(str(v/255) for v in rgb(fg)),
                             "@MOTION_SETUP@":"\n".join(motion_setup)}.items():
