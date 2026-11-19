@@ -150,7 +150,7 @@ class SetupTest(unittest.TestCase):
             with self.subTest(choice=choice),patch.object(setup,'choose',side_effect=[1,0,choice]),patch('builtins.input'):
                 options=setup.collect_options()
             self.assertEqual(options['speed'],expected)
-            self.assertEqual(float(options['command'][-1]),expected)
+            self.assertEqual(float(options['command'][options['command'].index('--speed')+1]),expected)
 
     def test_custom_speed_retries_invalid_input(self):
         with patch.object(setup,'choose',side_effect=[1,0,3]),patch('builtins.input',side_effect=['nan','0','4.01','1,25','0.5']):
@@ -160,9 +160,36 @@ class SetupTest(unittest.TestCase):
         with patch.object(setup,'choose',side_effect=[2,0,0]),patch('builtins.input',side_effect=[str(self.root/'missing.png'),'']):
             self.assertIsNone(setup.collect_options()['picture'])
 
+    def test_full_profile_has_separate_name_and_opening_color(self):
+        with patch.object(setup,'choose',side_effect=[1,0,0,0]),patch('builtins.input',return_value='#abc'):
+            options=setup.collect_options('full')
+        self.assertEqual(options['variant'],'full-black')
+        self.assertEqual(options['opening_color'],'#aabbcc')
+        self.assertEqual(options['picture'],str(self.root/'docs/demo/wallpaper.svg'))
+        self.assertEqual(options['command'][options['command'].index('--sequence')+1],'full')
+        self.assertEqual(options['command'][options['command'].index('--opening-color')+1],'#aabbcc')
+
+    def test_full_profile_can_use_an_independent_opening_picture(self):
+        picture=self.root/'opening.svg'
+        picture.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="red"/></svg>')
+        with patch.object(setup,'choose',side_effect=[0,1,1,1]),patch('builtins.input',return_value=str(picture)):
+            options=setup.collect_options('full')
+        self.assertEqual(options['variant'],'full-white')
+        self.assertEqual(options['speed'],1)
+        self.assertEqual(options['opening_picture'],str(picture))
+        self.assertNotEqual(options['opening_picture'],options['picture'])
+
+    def test_short_profile_has_no_opening_options(self):
+        with patch.object(setup,'choose',side_effect=[1,0,0]),patch('builtins.input'):
+            options=setup.collect_options()
+        self.assertEqual(options['variant'],'black')
+        self.assertEqual(options['sequence'],'short')
+        self.assertNotIn('--opening-color',options['command'])
+        self.assertNotIn('--opening-picture',options['command'])
+
     def test_preview_only_never_offers_install(self):
         options={'variant':'custom','picture':None,'panel_color':'#123456','line_color':'auto','speed':1,'command':['python3','build.py']}
-        with patch('sys.argv',['setup.py','--preview-only']),patch.object(setup,'check_dependencies'),patch.object(setup,'collect_options',return_value=options),patch.object(setup,'build_theme',return_value=self.root/'preview.mp4'),patch.object(setup,'confirm',return_value=False) as confirm,patch.object(setup,'install_theme') as install:
+        with patch('sys.argv',['setup.py','--preview-only']),patch.object(setup,'check_dependencies'),patch.object(setup,'choose',return_value=0),patch.object(setup,'collect_options',return_value=options),patch.object(setup,'build_theme',return_value=self.root/'preview.mp4'),patch.object(setup,'confirm',return_value=False) as confirm,patch.object(setup,'install_theme') as install:
             setup.main()
         confirm.assert_called_once_with('Open the video preview now?')
         install.assert_not_called()
@@ -210,7 +237,7 @@ class SetupTest(unittest.TestCase):
 
     def test_declining_install_leaves_system_unchanged(self):
         options={'variant':'custom','picture':None,'panel_color':'#123456','line_color':'auto','speed':1,'command':['python3','build.py']}
-        with patch('sys.argv',['setup.py']),patch.object(setup,'check_dependencies'),patch.object(setup,'collect_options',return_value=options),patch.object(setup,'build_theme',return_value=self.root/'preview.mp4'),patch.object(setup,'confirm',return_value=False),patch.object(setup,'install_theme') as install:
+        with patch('sys.argv',['setup.py']),patch.object(setup,'check_dependencies'),patch.object(setup,'choose',return_value=0),patch.object(setup,'collect_options',return_value=options),patch.object(setup,'build_theme',return_value=self.root/'preview.mp4'),patch.object(setup,'confirm',return_value=False),patch.object(setup,'install_theme') as install:
             setup.main()
         install.assert_not_called()
 

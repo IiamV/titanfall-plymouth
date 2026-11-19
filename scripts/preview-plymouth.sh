@@ -22,9 +22,12 @@ while [[ ${1:-} == --* ]]; do
     shift
 done
 variant=${1:-white}
-[[ $variant == black || $variant == white || $variant == custom ]] || { echo 'Variant must be black, white or custom' >&2; exit 1; }
+[[ $variant =~ ^(full-)?(black|white|custom)$ ]] || { echo 'Variant must be black, white, custom, or their full- variants' >&2; exit 1; }
 if (( $# )); then shift; fi
-seconds=${1:-$(python3 -c 'import json,math,sys; print(max(8,math.ceil(json.load(open(sys.argv[1]))["preview_duration"])+1))' "$ROOT/build/manifest.json")}
+manifest="$ROOT/build/manifest-short.json"
+if [[ $variant == full-* ]]; then manifest="$ROOT/build/manifest-full.json"; fi
+if [[ ! -f $manifest ]]; then manifest="$ROOT/build/manifest.json"; fi
+seconds=${1:-$(python3 -c 'import json,math,sys; print(max(8,math.ceil(json.load(open(sys.argv[1]))["preview_duration"])+1))' "$manifest")}
 resolution=${2:-960x540}
 [[ $resolution =~ ^[1-9][0-9]{1,3}x[1-9][0-9]{1,3}$ ]] || { echo 'Invalid preview resolution' >&2; exit 1; }
 capture_prefix="$ROOT/build/plymouth-$variant"
@@ -47,18 +50,21 @@ mount --bind "$ROOT/build/themes" /usr/share/plymouth/themes
 mount -t tmpfs tmpfs /run/plymouth
 xvfb_pid=
 daemon_pid=
+framebuffer=
 cleanup() {
     plymouth quit >/dev/null 2>&1 || true
     if [[ -n $daemon_pid ]]; then kill "$daemon_pid" 2>/dev/null || true; fi
     if [[ -n $xvfb_pid ]]; then kill "$xvfb_pid" 2>/dev/null || true; fi
     rm -f -- "$config"
+    if [[ -n $framebuffer ]]; then rm -rf -- "$framebuffer"; fi
 }
 trap cleanup EXIT INT TERM
 if $headless; then
     command -v Xvfb >/dev/null || { echo 'Headless preview needs Xvfb' >&2; exit 1; }
     # Namespace has its own X11 socket directory, so display :99 cannot collide.
     mount -t tmpfs tmpfs /tmp
-    Xvfb :99 -screen 0 "${resolution}x24" -nolisten tcp > "$ROOT/build/xvfb.log" 2>&1 &
+    framebuffer=$(mktemp -d "$ROOT/build/preview-framebuffer.XXXXXX")
+    Xvfb :99 -screen 0 "${resolution}x24" -fbdir "$framebuffer" -nolisten tcp > "$ROOT/build/xvfb.log" 2>&1 &
     xvfb_pid=$!
     export DISPLAY=:99
     unset XAUTHORITY
@@ -85,18 +91,20 @@ $ready || { echo 'Plymouth did not start; inspect build/plymouth-preview.log' >&
 plymouth show-splash
 capture() {
     if $headless && command -v magick >/dev/null; then
-        magick import -window root "$capture_prefix-$1.png"
+        # Copy Xvfb's live framebuffer immediately. ImageMagick's interactive
+        # import waits long enough to miss the short top/bottom phases.
+        cp -- "$framebuffer/Xvfb_screen0" "$framebuffer/$1.xwd"
     fi
 }
 preview_started=$(python3 -c 'import time; print(time.monotonic())')
 wait_until() {
     python3 -c 'import sys,time; time.sleep(max(0,float(sys.argv[1])+float(sys.argv[2])-time.monotonic()))' "$preview_started" "$1"
 }
-capture background
+if [[ $variant == full-* ]]; then capture intro-start; else capture background; fi
 while read -r moment label; do
     wait_until "$moment"
     capture "$label"
-done < <(python3 - "$ROOT/build/manifest.json" <<'PYPLAN'
+done < <(python3 - "$manifest" <<'PYPLAN'
 import json,sys
 m=json.load(open(sys.argv[1])); lines=m['lines']
 events=[]
@@ -109,6 +117,10 @@ for name,panel in m['panels'].items():
 events.append((m['assembly_time']+0.05,'closed'))
 for fraction,label in [(0.25,'exit-early'),(0.75,'exit-late')]:
     events.append((lines['exit_start']+fraction*lines['exit_duration'],label))
+offset=m.get('timeline_offset',0)
+events=[(moment+offset,label) for moment,label in events]
+if offset:
+    events.extend([(1/m['speed'],'intro-mid'),(2.4/m['speed'],'intro-closing'),(2.8/m['speed'],'intro-black'),(offset,'background')])
 for moment,label in sorted(events): print(moment,label)
 PYPLAN
 )
@@ -119,16 +131,18 @@ if $diagnostics; then
         --command=/usr/bin/true --dont-pause-progress > /dev/null 2>&1 &
     prompt_pid=$!
     sleep 2
-    if $headless && command -v magick >/dev/null; then
-        magick import -window root "$capture_prefix-prompt.png"
-    fi
+    capture prompt
     # Keep the diagnostic dialog active to verify it survives the final fade.
     kill "$prompt_pid" 2>/dev/null || true
     plymouth hide-message --text='PILOT LINK // diagnostic message'
 fi
 wait_until "$seconds"
+capture screenshot
 if $headless && command -v magick >/dev/null; then
-    magick import -window root "$capture_prefix-screenshot.png"
+    for snapshot in "$framebuffer"/*.xwd; do
+        label=${snapshot##*/}; label=${label%.xwd}
+        magick "xwd:$snapshot" "$capture_prefix-$label.png"
+    done
 fi
 plymouth quit
 wait "$daemon_pid"
