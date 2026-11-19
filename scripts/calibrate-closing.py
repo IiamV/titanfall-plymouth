@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Development-only matte bake; normal theme builds need no OpenCV/NumPy.
+"""Bake the authored overlay for every source frame; development tool only.
 
-Uses reviewed per-keyframe masks, not a single projected outline.
-Optical-flow reference: https://docs.opencv.org/4.x/d4/dee/tutorial_optical_flow.html
+Normal builds read the baked PNGs and require neither OpenCV nor NumPy.
+The contours retain source cockpit/shutter pixels and replace the outside view.
 """
 import hashlib
 import json
 from pathlib import Path
 
-ROOT=Path(__file__).resolve().parents[1]
-DATA=ROOT/'theme/closing'
+DATA=Path(__file__).resolve().parents[1]/'theme/closing'
 
 
 def main():
@@ -17,51 +16,43 @@ def main():
         import cv2
         import numpy as np
     except ImportError:
-        raise SystemExit('Calibration needs OpenCV and NumPy in a development environment. Ordinary builds use the baked mattes.')
+        raise SystemExit('Matte baking needs OpenCV and NumPy in a development environment; normal builds use the baked PNGs.')
+    data=json.loads((DATA/'rotoscope.json').read_text())
+    width,height=data['canvas'];output=tuple(data['output_canvas']);scale=4
     tracking=json.loads((DATA/'long/tracking.json').read_text())
-    source=ROOT/tracking['source']
+    source=DATA.parents[1]/tracking['source']
     if hashlib.sha256(source.read_bytes()).hexdigest()!=tracking['source_sha256']:
-        raise SystemExit('Source changed; review and recalibrate keymasks before baking.')
-    width,height=json.loads((DATA/'keyframes.json').read_text())['canvas']
-    capture=cv2.VideoCapture(str(source));decoded=[]
-    while True:
+        raise SystemExit('Source changed; wire matting requires the calibrated clip.')
+    capture=cv2.VideoCapture(str(source))
+    target=DATA/'masks';target.mkdir(exist_ok=True)
+    for entry in data['frames']:
         ok,frame=capture.read()
-        if not ok:break
-        decoded.append(cv2.cvtColor(cv2.resize(frame,(width,height)),cv2.COLOR_BGR2GRAY))
+        if not ok:raise SystemExit('Source ended before the last authored overlay')
+        gray=cv2.cvtColor(cv2.resize(frame,(width,height)),cv2.COLOR_BGR2GRAY)
+        # Recover the real cable's fine edge inside a continuous narrow band.
+        # This retains source pixels, not a newly drawn cable. A soft contrast
+        # matte avoids the on/off threshold that made earlier wires flicker.
+        background=cv2.morphologyEx(gray,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(9,9)))
+        contrast=np.clip((background.astype(float)-gray)/28,0,1)
+        contrast=cv2.resize(contrast,(width*scale,height*scale),interpolation=cv2.INTER_LINEAR)
+        mask=np.zeros((height*scale,width*scale),np.uint8)
+        def points(path):return np.rint(np.asarray(path)*scale).astype(np.int32)
+        if entry['outline']:
+            cv2.fillPoly(mask,[points(entry['outline'])],255,lineType=cv2.LINE_AA)
+            for path,thickness in zip(entry['wires'],data['wire_widths']):
+                band=np.zeros_like(mask)
+                cv2.polylines(band,[points(path)],False,255,round((thickness+4)*scale),lineType=cv2.LINE_AA)
+                keep=band.astype(float)*contrast
+                center=np.zeros_like(mask)
+                cv2.polylines(center,[points(path)],False,255,round(0.8*scale),lineType=cv2.LINE_AA)
+                keep=np.maximum(keep,center)
+                mask=np.minimum(mask,255-keep.astype(np.uint8))
+            for path in entry['occluders']:
+                cv2.fillPoly(mask,[points(path)],0,lineType=cv2.LINE_AA)
+        mask=cv2.resize(mask,output,interpolation=cv2.INTER_AREA)
+        if not cv2.imwrite(str(target/f'{entry["frame"]}.png'),mask):raise SystemExit('Cannot write mask')
     capture.release()
-    frames=np.asarray(decoded)
-    if len(frames)!=len(tracking['frames']):raise SystemExit('Source frame count changed')
-    keymasks={int(p.stem):cv2.imread(str(p),cv2.IMREAD_GRAYSCALE) for p in (DATA/'keymasks').glob('*.png')}
-    keys=sorted(keymasks)
-    if keys[0]!=0 or keys[-1]!=len(frames)-1:raise SystemExit('Keymasks must cover the entire clip')
-    if any(m is None or m.shape!=(height,width) for m in keymasks.values()):raise SystemExit('Invalid keymask dimensions')
-    cv2.setNumThreads(2)
-    flow=cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_MEDIUM)
-    grid=np.dstack(np.meshgrid(np.arange(width,dtype=np.float32),np.arange(height,dtype=np.float32)))
-    cache={}
-
-    def propagate(mask,start,end):
-        result=mask.astype(np.float32)
-        step=1 if end>start else -1
-        for i in range(start,end,step):
-            j=i+step
-            if (i,j) not in cache:cache[i,j]=flow.calc(frames[j],frames[i],None)
-            field=cache[i,j]
-            result=cv2.remap(result,grid[:,:,0]+field[:,:,0],grid[:,:,1]+field[:,:,1],
-                             cv2.INTER_LINEAR,borderMode=cv2.BORDER_REPLICATE)
-        return result
-
-    output=DATA/'masks';output.mkdir(exist_ok=True)
-    for i in range(len(frames)):
-        a=max(k for k in keys if k<=i);b=min(k for k in keys if k>=i)
-        if a==b:mask=keymasks[a].astype(np.float32)
-        else:
-            fraction=(i-a)/(b-a)
-            mask=propagate(keymasks[a],a,i)*(1-fraction)+propagate(keymasks[b],b,i)*fraction
-        mask=np.clip((mask-112)*8,0,255).astype(np.uint8)
-        mask=cv2.resize(mask,(960,540),interpolation=cv2.INTER_LINEAR)
-        if not cv2.imwrite(str(output/f'{i}.png'),mask):raise SystemExit(f'Cannot write matte {i}')
-    print(f'Baked {len(frames)} synchronized mattes from {len(keys)} reviewed keymasks')
+    print(f'Baked {len(data["frames"])} individual anti-aliased source-frame overlays')
 
 
 if __name__=='__main__':main()
