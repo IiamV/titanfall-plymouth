@@ -51,6 +51,37 @@ class ClosingSequenceTest(unittest.TestCase):
         self.assertEqual(profiles['semi-long']['frames'][0]['mask'],profiles['long']['frames'][114]['mask'])
         self.assertNotEqual(profiles['long']['source_sha256'],profiles['semi-long']['source_sha256'])
 
+    def test_default_playback_keeps_all_frames_and_excludes_hud_flash(self):
+        for profile,end in [('long',158),('semi-long',44)]:
+            tracking=json.loads((closing.DATA/profile/'tracking.json').read_text())
+            plan=closing.playback_plan(tracking,1.25,24)
+            self.assertEqual(plan['source_indices'],list(range(end)))
+            self.assertAlmostEqual(plan['fps'],(30000/1001)*1.25)
+            self.assertEqual(plan['trimmed_frames'],len(tracking['frames'])-end)
+        for speed in (.25,.75,1,1.25,4):
+            tracking=json.loads((closing.DATA/'semi-long/tracking.json').read_text())
+            plan=closing.playback_plan(tracking,speed,24)
+            self.assertTrue(all(i<44 for i in plan['source_indices']))
+            self.assertGreaterEqual(plan['duration'],plan['source_duration']/speed-1e-8)
+            self.assertLess(plan['duration']-plan['source_duration']/speed,1/plan['fps']+1e-8)
+            if speed<=1.25:self.assertEqual(set(plan['source_indices']),set(range(44)))
+
+    def test_wall_edge_corrections_do_not_jump_during_steady_closing(self):
+        import math
+        data=json.loads((closing.DATA/'rotoscope.json').read_text())['frames']
+        for i in range(113,140):
+            for point in range(47,79):
+                a,b,c=(data[j]['outline'][point] for j in (i-1,i,i+1))
+                acceleration=math.hypot(c[0]-2*b[0]+a[0],c[1]-2*b[1]+a[1])
+                self.assertLess(acceleration,5.5,f'Wall contour jumps in source frame {i}')
+
+    @unittest.skipUnless(shutil.which('ffmpeg'),'FFmpeg required')
+    def test_wall_and_lower_side_gap_reach_the_physical_boundary(self):
+        for frame,points in [(117,[(478,180),(430,310)]),(128,[(480,120),(478,180),(430,310),(425,330)])]:
+            mask=pixels(closing.DATA/'masks'/f'{frame}.png','gray')
+            for x,y in points:
+                self.assertGreater(mask[round(y*1.5)*960+round(x*1.5)],250,f'Outside strip remains at {frame=}, {x=}, {y=}')
+
     @unittest.skipUnless(shutil.which('magick') and shutil.which('ffmpeg'),'ImageMagick and FFmpeg required')
     def test_solid_and_picture_replace_only_mask_and_preserve_actual_footage(self):
         with tempfile.TemporaryDirectory() as temp:

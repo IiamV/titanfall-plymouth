@@ -21,18 +21,18 @@ assert intro['source_sha256']==tracking['source_sha256']
 theme=ROOT/'build/themes'/f'titanfall-{args.variant}'
 prefix=ROOT/'build'/f'plymouth-{args.variant}'
 assert len(list(theme.glob('intro-*.png')))-len(list(theme.glob('intro-mask-*.png')))==intro['frames']
-assert 0<=intro['duration']-tracking['duration']/m['speed']<1/m['fps']
+assert 0<=intro['duration']-intro['source_duration']/m['speed']<1/intro['fps']
 
 
 def pixels(path,format='rgb24'):
     return subprocess.check_output(['ffmpeg','-v','error','-i',str(path),'-pix_fmt',format,'-f','rawvideo','pipe:1'])
 
 
+assert max(pixels(theme/f'intro-{intro["frames"]-1}.png'))<20,'Post-close HUD flash remains in playback'
 opening=pixels(theme/'opening.png')
 for label in ('start','moving','closing'):
-    index=round(intro['checkpoints'][label]*m['fps'])
-    source_time=index/m['fps']*m['speed']
-    source_index=min(range(len(tracking['frames'])),key=lambda i:abs(tracking['frames'][i]['time']-source_time))
+    index=round(intro['checkpoints'][label]*intro['fps'])
+    source_index=intro['source_indices'][index]
     raw=pixels(ROOT/f'build/{profile}-source-frames'/f'{source_index}.png')
     actual=pixels(theme/f'intro-{index}.png')
     mask=pixels(theme/f'intro-mask-{index}.png','gray')
@@ -52,7 +52,7 @@ for label in ('start','moving','closing'):
 
 for label,seconds in intro['checkpoints'].items():
     actual=pixels(str(prefix)+f'-intro-{label}.png')
-    center=round(seconds*m['fps'])
+    center=round(seconds*intro['fps'])
     # Refresh callbacks can run late while Plymouth decodes footage PNGs.
     # Verify actual frame identity within 10% timing slack, not wall-clock
     # precision that the script plugin does not guarantee.
